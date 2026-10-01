@@ -4,3 +4,4 @@ __pycache__
 .git
 .gitignore
 probability_solutions.py
+docs

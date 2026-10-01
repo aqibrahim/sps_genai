@@ -31,6 +31,14 @@ The container listens on port 80 internally; `-p 8000:80` maps it to port 8000 o
 
 ---
 
+## Verified results
+
+The API was built and tested with Docker. See **[docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)** for the Swagger UI screenshot and the actual responses from each endpoint (including the full 300-value embedding for `"king"`).
+
+![Swagger UI served by the Docker container](docs/screenshots/swagger_ui_docker.png)
+
+---
+
 ## Testing the API
 
 ### Option A: Browser (Swagger UI)
@@ -127,6 +135,10 @@ sps_genai/
 ├── uv.lock                  # Exact locked versions
 ├── .python-version
 ├── probability_solutions.py # Part 2 calculation checks (not used by the API)
+├── docs/
+│   ├── TEST_RESULTS.md      # Screenshot and actual API responses
+│   ├── embedding_king_response.json
+│   └── screenshots/
 └── README.md
 ```
 
