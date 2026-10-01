@@ -1,0 +1,15 @@
+[project]
+name = "sps-genai"
+version = "0.1.0"
+description = "FastAPI service: bigram text generation + spaCy word embeddings (Assignment 1)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.115.0",
+    "spacy>=3.8.0,<3.9.0",
+    "numpy>=1.26",
+    "en-core-web-md",
+]
+
+[tool.uv.sources]
+en-core-web-md = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl" }
