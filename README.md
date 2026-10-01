@@ -35,7 +35,9 @@ The container listens on port 80 internally; `-p 8000:80` maps it to port 8000 o
 
 The API was built and tested with Docker. See **[docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)** for the Swagger UI screenshot and the actual responses from each endpoint (including the full 300-value embedding for `"king"`).
 
-![Swagger UI served by the Docker container](docs/screenshots/swagger_ui_docker.png)
+**`POST /embedding` with `{"word": "king"}`, served from the Docker container:**
+
+![POST /embedding response](docs/screenshots/embedding_response.png)
 
 ---
 

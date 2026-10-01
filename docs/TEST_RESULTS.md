@@ -49,6 +49,16 @@ curl -X POST http://127.0.0.1:8000/embedding \
 
 Full 300-value response: [`embedding_king_response.json`](embedding_king_response.json)
 
+**Screenshots (Swagger UI, Docker)**
+
+Request:
+
+![POST /embedding request](screenshots/embedding_request.png)
+
+Response (code 200, 300-dimensional vector):
+
+![POST /embedding response](screenshots/embedding_response.png)
+
 **Result:** the endpoint returns spaCy's 300-dimensional `en_core_web_md` vector for the query word. ✅
 
 ---
@@ -64,15 +74,27 @@ Full 300-value response: [`embedding_king_response.json`](embedding_king_respons
 }
 ```
 
-**Response: `200 OK`**
+**Response: `200 OK`** (two separate runs)
 
 ```json
-{
-  "generated_text": "the story of edmond dantès , who is another example"
-}
+{ "generated_text": "the count of edmond dantès , who is falsely imprisoned" }
 ```
 
-**Result:** text is generated word by word from bigram probabilities. After "is", the model switched from the Monte Cristo sentence to "this is another example sentence", since "is" is followed by different words in the corpus. Output is random, so it varies between calls. ✅
+```json
+{ "generated_text": "the story of edmond dantès , who is another example" }
+```
+
+**Screenshots (Swagger UI, Docker)**
+
+Request:
+
+![POST /generate request](screenshots/generate_request.png)
+
+Response (code 200):
+
+![POST /generate response](screenshots/generate_response.png)
+
+**Result:** text is generated word by word from bigram probabilities. After "is", the model switched from the Monte Cristo sentence to "this is another example sentence", since "is" is followed by different words in the corpus. Output is random, so it varies between calls, as the two runs above show. ✅
 
 ---
 
