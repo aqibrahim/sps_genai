@@ -92,6 +92,16 @@ The script downloads CIFAR-10 to `data/` (not committed), trains the CNN, evalua
 - `models/cifar10_cnn_metrics.json`: test loss and accuracy
 - `sample_images/`: one CIFAR-10 test image per class, for trying the API
 
+### Detailed evaluation
+
+`evaluate_cifar10.py` loads the trained model (no retraining) and measures per-class accuracy, a confusion matrix and the most common mistakes on the 10,000 test images:
+
+```bash
+uv run --with matplotlib python evaluate_cifar10.py
+```
+
+It saves `models/cifar10_cnn_evaluation.json` and the charts `docs/screenshots/confusion_matrix.png` and `docs/screenshots/per_class_accuracy.png`. Results are in [docs/ASSIGNMENT_2.md](docs/ASSIGNMENT_2.md).
+
 ### Classify an image
 
 **Browser:** open http://127.0.0.1:8000/docs → **POST /classify** → **Try it out** → **Choose File** (e.g. `sample_images/cat.png`) → **Execute**.
@@ -245,6 +255,8 @@ sps_genai/
 │   └── cifar10_cnn_metrics.json
 ├── sample_images/           # One CIFAR-10 test image per class
 ├── train_cifar10.py         # Trains the CNN and saves it to models/
+├── evaluate_cifar10.py      # Per-class accuracy and confusion matrix
+├── tests/                   # pytest: architecture, helper library, API endpoints
 ├── Dockerfile
 ├── pyproject.toml           # Dependencies (CPU-only PyTorch on Linux/Docker)
 ├── uv.lock
@@ -252,6 +264,18 @@ sps_genai/
 ├── docs/                    # ASSIGNMENT_1.md, ASSIGNMENT_2.md, screenshots
 └── README.md
 ```
+
+---
+
+## Automated tests
+
+The `tests/` folder checks the CNN architecture layer by layer against the assignment spec, the helper library, and every API endpoint (including error cases):
+
+```bash
+uv run --with pytest pytest -v
+```
+
+`--with pytest` adds pytest only for this command, so it is not installed in the Docker image.
 
 ---
 

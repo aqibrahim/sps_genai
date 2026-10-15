@@ -8,3 +8,5 @@ docs
 data
 sample_images
 train_cifar10.py
+tests
+evaluate_cifar10.py
