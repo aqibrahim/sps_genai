@@ -10,9 +10,18 @@ A FastAPI service with three models:
 | **spaCy word embeddings** | Returns the 300-dimensional embedding vector for a query word | Module 2 → Assignment 1 |
 | **Bigram text generator** | Generates text from a start word using bigram probabilities | Module 3 class activity |
 
---- | --- | --- |
-| **spaCy word embeddings** | Returns the 300-dimensional embedding vector for a query word | Module 2 → **Assignment 1 (new)** |
-| **Bigram text generator** | Generates text from a start word using bigram probabilities | Module 3 class activity |
+---
+
+## Assignments (grading guide)
+
+Each assignment builds on the same API, so they share one repository. Every assignment has its own page and a tagged snapshot of the repo exactly as submitted.
+
+| Assignment | Topic | New endpoints | Details and results | Snapshot |
+| --- | --- | --- | --- | --- |
+| **Assignment 2** | CNN image classifier (CIFAR-10) | `POST /classify`, `GET /classify/classes` | [docs/ASSIGNMENT_2.md](docs/ASSIGNMENT_2.md) | [`assignment-2`](https://github.com/aqibrahim/sps_genai/tree/assignment-2) |
+| **Assignment 1** | spaCy word embeddings | `POST /embedding`, `GET /embedding/{word}`, `POST /similarity` | [docs/ASSIGNMENT_1.md](docs/ASSIGNMENT_1.md) | [`assignment-1`](https://github.com/aqibrahim/sps_genai/tree/assignment-1) |
+
+The current `main` branch contains all assignments, so one `docker build` serves every endpoint.
 
 ---
 
@@ -124,7 +133,7 @@ Any PNG or JPEG of any size works. Uploaded images are shrunk to 32×32 and upsc
 
 ![POST /embedding response](docs/screenshots/embedding_response.png)
 
-Full training output, all responses and screenshots: **[docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)**.
+Full results and screenshots: **[Assignment 2](docs/ASSIGNMENT_2.md)** · **[Assignment 1](docs/ASSIGNMENT_1.md)**.
 
 ---
 
@@ -240,7 +249,7 @@ sps_genai/
 ├── pyproject.toml           # Dependencies (CPU-only PyTorch on Linux/Docker)
 ├── uv.lock
 ├── probability_solutions.py # Assignment 1 Part 2 calculation checks
-├── docs/                    # Test results and screenshots
+├── docs/                    # ASSIGNMENT_1.md, ASSIGNMENT_2.md, screenshots
 └── README.md
 ```
 

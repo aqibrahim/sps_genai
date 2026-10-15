@@ -1,65 +1,32 @@
-# Test Results
+# Assignment 1: Word Embeddings API
 
-## Assignment 2: CIFAR-10 CNN classifier
+**Author:** Aqib Rahim · **Snapshot:** [`assignment-1` tag](https://github.com/aqibrahim/sps_genai/tree/assignment-1)
 
-### Training output
+## What was asked
 
-```
-Using device: mps
-Epoch 1/10 - loss: 1.5771 - train acc: 42.53%
-Epoch 2/10 - loss: 1.2939 - train acc: 53.16%
-Epoch 3/10 - loss: 1.1660 - train acc: 58.42%
-Epoch 4/10 - loss: 1.0922 - train acc: 60.91%
-Epoch 5/10 - loss: 1.0412 - train acc: 62.95%
-Epoch 6/10 - loss: 0.9998 - train acc: 64.59%
-Epoch 7/10 - loss: 0.9658 - train acc: 65.68%
-Epoch 8/10 - loss: 0.9470 - train acc: 66.43%
-Epoch 9/10 - loss: 0.9278 - train acc: 67.42%
-Epoch 10/10 - loss: 0.9141 - train acc: 67.78%
-Test loss: 0.8595 - Test accuracy: 69.70%
-Saved model to models/cifar10_cnn.pth and metrics to models/cifar10_cnn_metrics.json
-Saved 10 sample images to sample_images/
-```
+1. **Practice: FastAPI implementation.** Add the spaCy word-embedding functionality from Module 2 to the API from the Module 3 class activity, with an endpoint that returns the embedding for a query word; commit to GitHub (Docker optional).
+2. **Theory: rules of probability.** Submitted as a PDF on Canvas.
 
-**Result:** the Assignment 2 CNN reaches **69.70% accuracy** on the 10,000 CIFAR-10 test images (random guessing would be 10%). ✅
+## Where to find it
 
-### Sample images for testing `/classify`
+| Part | File |
+| --- | --- |
+| Embedding model | [`app/embedding_model.py`](../app/embedding_model.py) |
+| API endpoints | [`app/main.py`](../app/main.py): `POST /embedding`, `GET /embedding/{word}`, `POST /similarity` |
+| Bigram model (Module 3 activity) | [`app/bigram_model.py`](../app/bigram_model.py): `POST /generate` |
+| Probability checks | [`probability_solutions.py`](../probability_solutions.py) |
 
-One CIFAR-10 test image per class, in [`sample_images/`](../sample_images):
+## How to test
 
-| | | | | |
-| --- | --- | --- | --- | --- |
-| ![airplane](../sample_images/airplane.png)<br>airplane | ![automobile](../sample_images/automobile.png)<br>automobile | ![bird](../sample_images/bird.png)<br>bird | ![cat](../sample_images/cat.png)<br>cat | ![deer](../sample_images/deer.png)<br>deer |
-| ![dog](../sample_images/dog.png)<br>dog | ![frog](../sample_images/frog.png)<br>frog | ![horse](../sample_images/horse.png)<br>horse | ![ship](../sample_images/ship.png)<br>ship | ![truck](../sample_images/truck.png)<br>truck |
-
-### `POST /classify` through Docker
-
-Request: `cat.png` from `sample_images/`, `top_k=3`, sent from the Swagger UI of the Docker container (`docker run -p 8000:80 sps-genai`).
-
-**Response: `200 OK`**
-
-```json
-{
-  "filename": "cat.png",
-  "predicted_class": "cat",
-  "class_index": 3,
-  "confidence": 0.8627,
-  "top_predictions": [
-    {"class": "cat", "probability": 0.8627},
-    {"class": "dog", "probability": 0.1123},
-    {"class": "bird", "probability": 0.0151}
-  ]
-}
+```bash
+docker build -t sps-genai .
+docker run -p 8000:80 sps-genai
+curl -X POST http://127.0.0.1:8000/embedding -H "Content-Type: application/json" -d '{"word": "king"}'
 ```
 
-**Result:** correctly classified as **cat** with 86.27% confidence; the runner-up classes (dog, bird) are the visually closest ones. ✅
+Expected: `200` with `"dimension": 300` and the 300-value vector.
 
-![POST /classify with cat.png, served from the Docker container](screenshots/classify_cat_docker.png)
-
----
-
-# Assignment 1 Results
-
+## Results
 The API was built and run with Docker on **October 1, 2026** (macOS, Apple Silicon) using:
 
 ```bash
