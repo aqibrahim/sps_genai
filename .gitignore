@@ -4,3 +4,5 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+# CIFAR-10 download (~170 MB), recreated by train_cifar10.py
+data/

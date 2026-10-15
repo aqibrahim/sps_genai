@@ -1,11 +1,16 @@
-# SPS GenAI API – Assignment 1
+# SPS GenAI API – Assignments 1 & 2
 
 **Author:** Aqib Rahim · **Course:** Applied Generative AI
 
-A FastAPI service with two models:
+A FastAPI service with three models:
 
 | Model | What it does | Source |
 | --- | --- | --- |
+| **CIFAR-10 CNN classifier** | Classifies an uploaded image into one of 10 CIFAR-10 classes | Module 4 → **Assignment 2 (new)** |
+| **spaCy word embeddings** | Returns the 300-dimensional embedding vector for a query word | Module 2 → Assignment 1 |
+| **Bigram text generator** | Generates text from a start word using bigram probabilities | Module 3 class activity |
+
+--- | --- | --- |
 | **spaCy word embeddings** | Returns the 300-dimensional embedding vector for a query word | Module 2 → **Assignment 1 (new)** |
 | **Bigram text generator** | Generates text from a start word using bigram probabilities | Module 3 class activity |
 
@@ -22,12 +27,78 @@ docker build -t sps-genai .
 docker run -p 8000:80 sps-genai
 ```
 
-- The first build takes a few minutes (it downloads Python, spaCy and the `en_core_web_md` model, about 40 MB).
+- The first build takes several minutes (it downloads Python, CPU-only PyTorch, spaCy and the `en_core_web_md` model). The trained CNN weights are already in `models/`, so no training is needed.
 - The server is ready when the log shows: `Uvicorn running on http://0.0.0.0:80`
 - Open **http://127.0.0.1:8000/docs** in a browser.
 - Stop the server with **Ctrl+C**.
 
 The container listens on port 80 internally; `-p 8000:80` maps it to port 8000 on your machine. The image works on both Intel/AMD (x86_64) and Apple Silicon (arm64) machines.
+
+---
+
+## Assignment 2: CNN image classifier
+
+### Architecture (`helper_lib/model.py`, `get_model("CNN")`)
+
+| Layer | Configuration | Output shape |
+| --- | --- | --- |
+| Input | RGB image | 3 × 64 × 64 |
+| Conv2d | 16 filters, 3×3, stride 1, padding 1 | 16 × 64 × 64 |
+| ReLU | | 16 × 64 × 64 |
+| MaxPool2d | 2×2, stride 2 | 16 × 32 × 32 |
+| Conv2d | 32 filters, 3×3, stride 1, padding 1 | 32 × 32 × 32 |
+| ReLU | | 32 × 32 × 32 |
+| MaxPool2d | 2×2, stride 2 | 32 × 16 × 16 |
+| Flatten | | 8192 |
+| Linear | 100 units | 100 |
+| ReLU | | 100 |
+| Linear | 10 units (CIFAR-10 classes) | 10 |
+
+Total parameters: 825,398.
+
+### Training
+
+CIFAR-10 images are 32×32, so they are resized to 64×64 to match the required input size (with random crop and horizontal-flip augmentation during training). Training uses Adam (lr 0.001), cross-entropy loss and batch size 64:
+
+```bash
+uv run python train_cifar10.py              # 10 epochs by default
+uv run python train_cifar10.py --epochs 15  # optional
+```
+
+The script downloads CIFAR-10 to `data/` (not committed), trains the CNN, evaluates it on the 10,000 test images, and writes:
+
+- `models/cifar10_cnn.pth`: trained weights used by the API (committed, so the Docker image works without retraining)
+- `models/cifar10_cnn_metrics.json`: test loss and accuracy
+- `sample_images/`: one CIFAR-10 test image per class, for trying the API
+
+### Classify an image
+
+**Browser:** open http://127.0.0.1:8000/docs → **POST /classify** → **Try it out** → **Choose File** (e.g. `sample_images/cat.png`) → **Execute**.
+
+**curl:**
+
+```bash
+curl -X POST "http://127.0.0.1:8000/classify?top_k=3" \
+  -F "file=@sample_images/cat.png"
+```
+
+Response format:
+
+```json
+{
+  "filename": "cat.png",
+  "predicted_class": "cat",
+  "class_index": 3,
+  "confidence": 0.71,
+  "top_predictions": [
+    {"class": "cat", "probability": 0.71},
+    {"class": "dog", "probability": 0.18},
+    {"class": "frog", "probability": 0.04}
+  ]
+}
+```
+
+Any PNG or JPEG of any size works. Uploaded images are shrunk to 32×32 and upscaled to 64×64, the same way the training images were prepared. The model only knows the 10 CIFAR-10 classes (airplane, automobile, bird, cat, deer, dog, frog, horse, ship, truck), so photos of other things are still assigned to the closest of these.
 
 ---
 
@@ -103,11 +174,15 @@ Expected (output is random, so it varies each call): `{"generated_text": "the co
 | POST | `/embedding` | `{"word": "king"}` | `word`, `in_vocabulary`, `dimension`, `embedding` (list of 300 floats) |
 | GET | `/embedding/{word}` | word in the URL | same as `POST /embedding` |
 | POST | `/similarity` | `{"word1": "king", "word2": "queen"}` | cosine similarity between the two word vectors |
+| POST | `/classify` | image file upload (form field `file`), optional `?top_k=1..10` | `predicted_class`, `class_index`, `confidence`, `top_predictions` |
+| GET | `/classify/classes` | – | the 10 class names and the model's test accuracy |
 | POST | `/generate` | `{"start_word": "the", "length": 10}` | `generated_text` (`length` must be 1–100) |
 
 **Input rules and errors**
 
 - `/embedding` accepts **one word**. Multi-word input such as `"two words"` returns **400** with `{"detail": "Please provide a single word."}`.
+- `/classify` with a file that is not an image returns **400**; a missing file or `top_k` outside 1–10 returns **422**.
+- If `models/cifar10_cnn.pth` is missing, `/classify` returns **503** with instructions to run the training script.
 - Missing or invalid fields return **422** (FastAPI validation error).
 - A word not in spaCy's vocabulary still returns **200**, with `"in_vocabulary": false` and an all-zero vector.
 
@@ -117,9 +192,10 @@ Expected (output is random, so it varies each call): `{"generated_text": "the co
 
 - **Embeddings** (`app/embedding_model.py`): loads spaCy's `en_core_web_md` model once at startup. For a query word it returns the token's static 300-dimensional vector (`token.vector`). Similarity is the cosine similarity of two word vectors (`token.similarity`).
 - **Bigram model** (`app/bigram_model.py`): tokenizes a small corpus, counts word pairs, and converts them to conditional probabilities P(next word | current word). Generation samples each next word from those probabilities, stopping early if a word has no known continuation.
+- **CNN classifier** (`helper_lib/`, `app/image_classifier.py`): the Module 4 helper library holds the data loading, model definitions, training loop and evaluation. `train_cifar10.py` uses it to train the Assignment 2 CNN; the API loads the saved weights once at startup and runs inference on uploaded images.
 - **API** (`app/main.py`): FastAPI routes with Pydantic request models for input validation.
 
-The spaCy model is pinned as a dependency in `pyproject.toml` and locked in `uv.lock`, so `uv sync` (and the Docker build) installs it automatically. No separate `python -m spacy download` step is needed.
+PyTorch is installed from the official CPU-only index on Linux (inside Docker), which keeps the image smaller and needs no GPU on the grader's machine; macOS and Windows use the regular PyPI build. The spaCy model is pinned as a dependency in `pyproject.toml` and locked in `uv.lock`, so `uv sync` (and the Docker build) installs it automatically. No separate `python -m spacy download` step is needed.
 
 ---
 
@@ -130,17 +206,25 @@ sps_genai/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py              # FastAPI app and endpoints
+│   ├── image_classifier.py  # CIFAR-10 inference wrapper (Assignment 2)
 │   ├── embedding_model.py   # spaCy word-embedding model (Assignment 1)
 │   └── bigram_model.py      # Bigram text generator (Module 3)
-├── Dockerfile               # Container build (Python 3.12 + uv)
-├── pyproject.toml           # Dependencies, including the spaCy model
-├── uv.lock                  # Exact locked versions
-├── .python-version
-├── probability_solutions.py # Part 2 calculation checks (not used by the API)
-├── docs/
-│   ├── TEST_RESULTS.md      # Screenshot and actual API responses
-│   ├── embedding_king_response.json
-│   └── screenshots/
+├── helper_lib/              # Reusable neural-network library (Module 4)
+│   ├── data_loader.py       # CIFAR-10 loaders and transforms
+│   ├── model.py             # FCNN, CNN (Assignment 2 spec), EnhancedCNN
+│   ├── trainer.py           # Training loop
+│   ├── evaluator.py         # Test loss and accuracy
+│   └── utils.py             # Save/load model, device selection
+├── models/
+│   ├── cifar10_cnn.pth      # Trained CNN weights
+│   └── cifar10_cnn_metrics.json
+├── sample_images/           # One CIFAR-10 test image per class
+├── train_cifar10.py         # Trains the CNN and saves it to models/
+├── Dockerfile
+├── pyproject.toml           # Dependencies (CPU-only PyTorch on Linux/Docker)
+├── uv.lock
+├── probability_solutions.py # Assignment 1 Part 2 calculation checks
+├── docs/                    # Test results and screenshots
 └── README.md
 ```
 
@@ -167,4 +251,5 @@ Then open http://127.0.0.1:8000/docs.
 | `docker build requires 1 argument` | Add the `.` at the end: `docker build -t sps-genai .` |
 | `port is already allocated` | Port 8000 is in use. Run on another port: `docker run -p 8001:80 sps-genai`, then open http://127.0.0.1:8001/docs |
 | Page doesn't load right after `docker run` | Wait for the `Uvicorn running` log line; the spaCy model takes a few seconds to load. |
+| `/classify` returns 503 | `models/cifar10_cnn.pth` is missing. Run `uv run python train_cifar10.py`, then rebuild the Docker image. |
 | `"in_vocabulary": false` | The word isn't in spaCy's vocabulary. Try a common English word such as `king`, `apple` or `computer`. |

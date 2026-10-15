@@ -5,3 +5,6 @@ __pycache__
 .gitignore
 probability_solutions.py
 docs
+data
+sample_images
+train_cifar10.py

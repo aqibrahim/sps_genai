@@ -1,7 +1,7 @@
 [project]
 name = "sps-genai"
-version = "0.1.0"
-description = "FastAPI service: bigram text generation + spaCy word embeddings (Assignment 1)"
+version = "0.2.0"
+description = "FastAPI service: bigram text generation, spaCy word embeddings (A1), CIFAR-10 CNN classifier (A2)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -9,7 +9,19 @@ dependencies = [
     "spacy>=3.8.0,<3.9.0",
     "numpy>=1.26",
     "en-core-web-md",
+    "torch>=2.5.0",
+    "torchvision>=0.20.0",
+    "pillow>=10.0",
 ]
 
 [tool.uv.sources]
 en-core-web-md = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl" }
+# On Linux (i.e. inside Docker) use the CPU-only PyTorch build: a much smaller image,
+# and no NVIDIA GPU needed on the machine running the container. macOS/Windows use PyPI.
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

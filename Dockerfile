@@ -18,11 +18,13 @@ WORKDIR /code
 # Copy the dependency files first (better layer caching)
 COPY pyproject.toml uv.lock README.md /code/
 
-# Install dependencies (incl. spaCy + en_core_web_md model) exactly as locked
+# Install dependencies (spaCy model, CPU-only PyTorch, ...) exactly as locked
 RUN uv sync --frozen
 
-# Copy the application code
+# Copy the application code, the helper library and the trained model weights
+COPY ./helper_lib /code/helper_lib
 COPY ./app /code/app
+COPY ./models /code/models
 
 # Command to run the application
 CMD ["uv", "run", "fastapi", "run", "app/main.py", "--port", "80"]
