@@ -100,7 +100,9 @@ The script downloads CIFAR-10 to `data/` (not committed), trains the CNN, evalua
 uv run --with matplotlib python evaluate_cifar10.py
 ```
 
-It saves `models/cifar10_cnn_evaluation.json` and the charts `docs/screenshots/confusion_matrix.png` and `docs/screenshots/per_class_accuracy.png`. Results are in [docs/ASSIGNMENT_2.md](docs/ASSIGNMENT_2.md).
+It saves `models/cifar10_cnn_evaluation.json` and the charts `docs/screenshots/confusion_matrix.png` and `docs/screenshots/per_class_accuracy.png`.
+
+**Result:** best classes are ship (86.9%) and automobile (86.2%); hardest are cat (54.0%), deer (58.9%) and dog (59.9%). The most common mistake is dog → cat (198 images). Full table and interpretation: [docs/ASSIGNMENT_2.md](docs/ASSIGNMENT_2.md#detailed-evaluation).
 
 ### Classify an image
 
@@ -269,7 +271,7 @@ sps_genai/
 
 ## Automated tests
 
-The `tests/` folder checks the CNN architecture layer by layer against the assignment spec, the helper library, and every API endpoint (including error cases):
+The `tests/` folder (31 tests, **all passing**) checks the CNN architecture layer by layer against the assignment spec, the helper library, and every API endpoint (including error cases):
 
 ```bash
 uv run --with pytest pytest -v

@@ -59,6 +59,46 @@ Saved 10 sample images to sample_images/
 
 **Result:** the Assignment 2 CNN reaches **69.70% accuracy** on the 10,000 CIFAR-10 test images (random guessing would be 10%). ✅
 
+## Detailed evaluation
+
+From `uv run --with matplotlib python evaluate_cifar10.py`, using the trained model on the 10,000 CIFAR-10 test images:
+
+| Class | Test accuracy |
+| --- | --- |
+| ship | 86.9% |
+| automobile | 86.2% |
+| frog | 75.1% |
+| horse | 72.8% |
+| truck | 70.0% |
+| airplane | 69.7% |
+| bird | 63.5% |
+| dog | 59.9% |
+| deer | 58.9% |
+| cat | 54.0% |
+| **Overall** | **69.70%** |
+
+**Most common mistakes (true → predicted):**
+
+| True class | Predicted as | Images |
+| --- | --- | --- |
+| dog | cat | 198 |
+| cat | dog | 156 |
+| deer | bird | 141 |
+| truck | automobile | 138 |
+| airplane | ship | 121 |
+
+**Interpretation.** The model is strongest on classes with distinctive shapes and backgrounds: ships (water), automobiles, and frogs. It struggles most with cats, dogs and deer. The top two mistakes are cats and dogs confused with each other: at 32×32 resolution both are furry, four-legged animals of similar size and pose, and this small two-layer CNN does not have the capacity to learn the finer facial features that separate them. The other frequent mistakes also pair visually similar classes: deer and birds (brown animals on green or natural backgrounds), trucks and automobiles (both vehicles on roads), and airplanes and ships (objects against a plain blue sky or sea). These errors suggest that a deeper network with more filters, such as the EnhancedCNN in the helper library, would mainly improve the animal classes.
+
+![Evaluation output](screenshots/evaluation_output.png)
+
+## Automated tests
+
+`uv run --with pytest pytest -v` runs 31 tests: the CNN checked layer by layer against the assignment spec, its layer settings and parameter count (825,398), all helper-library models, the image transforms, all 10 sample images through `POST /classify`, the error cases (400/422), and the Assignment 1 endpoints.
+
+**Result: 31 passed.** ✅ (The one warning comes from FastAPI's test client library, not from this project.)
+
+![pytest results: 31 passed](screenshots/pytest_results.png)
+
 ## Sample images for testing `/classify`
 
 One CIFAR-10 test image per class, in [`sample_images/`](../sample_images):
