@@ -1,0 +1,9 @@
+{
+  "model": "CNN (Assignment 2 architecture)",
+  "dataset": "CIFAR-10",
+  "epochs": 10,
+  "batch_size": 64,
+  "learning_rate": 0.001,
+  "test_loss": 0.8595,
+  "test_accuracy": 69.7
+}

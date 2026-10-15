@@ -1,5 +1,41 @@
 # Test Results
 
+## Assignment 2: CIFAR-10 CNN classifier
+
+### Training output
+
+```
+Using device: mps
+Epoch 1/10 - loss: 1.5771 - train acc: 42.53%
+Epoch 2/10 - loss: 1.2939 - train acc: 53.16%
+Epoch 3/10 - loss: 1.1660 - train acc: 58.42%
+Epoch 4/10 - loss: 1.0922 - train acc: 60.91%
+Epoch 5/10 - loss: 1.0412 - train acc: 62.95%
+Epoch 6/10 - loss: 0.9998 - train acc: 64.59%
+Epoch 7/10 - loss: 0.9658 - train acc: 65.68%
+Epoch 8/10 - loss: 0.9470 - train acc: 66.43%
+Epoch 9/10 - loss: 0.9278 - train acc: 67.42%
+Epoch 10/10 - loss: 0.9141 - train acc: 67.78%
+Test loss: 0.8595 - Test accuracy: 69.70%
+Saved model to models/cifar10_cnn.pth and metrics to models/cifar10_cnn_metrics.json
+Saved 10 sample images to sample_images/
+```
+
+**Result:** the Assignment 2 CNN reaches **69.70% accuracy** on the 10,000 CIFAR-10 test images (random guessing would be 10%). ✅
+
+### Sample images for testing `/classify`
+
+One CIFAR-10 test image per class, in [`sample_images/`](../sample_images):
+
+| | | | | |
+| --- | --- | --- | --- | --- |
+| ![airplane](../sample_images/airplane.png)<br>airplane | ![automobile](../sample_images/automobile.png)<br>automobile | ![bird](../sample_images/bird.png)<br>bird | ![cat](../sample_images/cat.png)<br>cat | ![deer](../sample_images/deer.png)<br>deer |
+| ![dog](../sample_images/dog.png)<br>dog | ![frog](../sample_images/frog.png)<br>frog | ![horse](../sample_images/horse.png)<br>horse | ![ship](../sample_images/ship.png)<br>ship | ![truck](../sample_images/truck.png)<br>truck |
+
+---
+
+# Assignment 1 Results
+
 The API was built and run with Docker on **October 1, 2026** (macOS, Apple Silicon) using:
 
 ```bash

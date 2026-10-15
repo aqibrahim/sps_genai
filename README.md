@@ -56,6 +56,18 @@ The container listens on port 80 internally; `-p 8000:80` maps it to port 8000 o
 
 Total parameters: 825,398.
 
+### Results
+
+Trained for 10 epochs on the 50,000 CIFAR-10 training images (Apple M-series GPU, about 5 minutes):
+
+| Metric | Value |
+| --- | --- |
+| **Test accuracy** (10,000 test images) | **69.70%** |
+| Test loss | 0.8595 |
+| Final training accuracy | 67.78% |
+
+Test accuracy is slightly above training accuracy because the training images are randomly cropped and flipped (augmentation), which makes them harder than the unmodified test images. Full metrics: [`models/cifar10_cnn_metrics.json`](models/cifar10_cnn_metrics.json).
+
 ### Training
 
 CIFAR-10 images are 32×32, so they are resized to 64×64 to match the required input size (with random crop and horizontal-flip augmentation during training). Training uses Adam (lr 0.001), cross-entropy loss and batch size 64:
