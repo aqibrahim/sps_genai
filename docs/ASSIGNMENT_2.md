@@ -87,7 +87,19 @@ From `uv run --with matplotlib python evaluate_cifar10.py`, using the trained mo
 | truck | automobile | 138 |
 | airplane | ship | 121 |
 
-**Interpretation.** The model is strongest on classes with distinctive shapes and backgrounds: ships (water), automobiles, and frogs. It struggles most with cats, dogs and deer. The top two mistakes are cats and dogs confused with each other: at 32×32 resolution both are furry, four-legged animals of similar size and pose, and this small two-layer CNN does not have the capacity to learn the finer facial features that separate them. The other frequent mistakes also pair visually similar classes: deer and birds (brown animals on green or natural backgrounds), trucks and automobiles (both vehicles on roads), and airplanes and ships (objects against a plain blue sky or sea). These errors suggest that a deeper network with more filters, such as the EnhancedCNN in the helper library, would mainly improve the animal classes.
+**Interpretation.** The model is strongest on classes with distinctive shapes and backgrounds: ships (water), automobiles, and frogs. It struggles most with cats, dogs and deer. The top two mistakes are cats and dogs confused with each other: at 32×32 resolution both are furry, four-legged animals of similar size and pose, and this small two-layer CNN does not have the capacity to learn the finer facial features that separate them. The other frequent mistakes also pair visually similar classes: deer and birds (brown animals on green or natural backgrounds), trucks and automobiles (both vehicles on roads), and airplanes and ships (objects against a plain blue sky or sea). The confusion matrix also shows that **bird** is the model's most common wrong guess overall (its column has the most off-diagonal predictions): deer (141), cats (107) and frogs (100) are often labelled as birds, so for small animals with unclear shapes the model tends to fall back on "bird". These errors suggest that a deeper network with more filters, such as the EnhancedCNN in the helper library, would mainly improve the animal classes.
+
+**Confusion matrix** (rows = true class, columns = predicted class; the diagonal holds the 6,970 correct predictions):
+
+![Confusion matrix](screenshots/confusion_matrix.png)
+
+**Per-class accuracy** (dashed line = overall 69.70%):
+
+![Per-class accuracy](screenshots/per_class_accuracy.png)
+
+Raw numbers: [`models/cifar10_cnn_evaluation.json`](../models/cifar10_cnn_evaluation.json).
+
+Terminal output:
 
 ![Evaluation output](screenshots/evaluation_output.png)
 

@@ -104,6 +104,8 @@ It saves `models/cifar10_cnn_evaluation.json` and the charts `docs/screenshots/c
 
 **Result:** best classes are ship (86.9%) and automobile (86.2%); hardest are cat (54.0%), deer (58.9%) and dog (59.9%). The most common mistake is dog → cat (198 images). Full table and interpretation: [docs/ASSIGNMENT_2.md](docs/ASSIGNMENT_2.md#detailed-evaluation).
 
+![Per-class accuracy](docs/screenshots/per_class_accuracy.png)
+
 ### Classify an image
 
 **Browser:** open http://127.0.0.1:8000/docs → **POST /classify** → **Try it out** → **Choose File** (e.g. `sample_images/cat.png`) → **Execute**.
