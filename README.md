@@ -116,11 +116,15 @@ Any PNG or JPEG of any size works. Uploaded images are shrunk to 32×32 and upsc
 
 ## Verified results
 
-The API was built and tested with Docker. See **[docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)** for the Swagger UI screenshot and the actual responses from each endpoint (including the full 300-value embedding for `"king"`).
+**Assignment 2:** the CNN reaches **69.70% test accuracy** on CIFAR-10. Through the Docker container, `POST /classify` with `sample_images/cat.png` returns **cat** with 86.27% confidence:
 
-**`POST /embedding` with `{"word": "king"}`, served from the Docker container:**
+![POST /classify response from the Docker container](docs/screenshots/classify_cat_docker.png)
+
+**Assignment 1:** `POST /embedding` with `{"word": "king"}` returns the 300-dimensional vector:
 
 ![POST /embedding response](docs/screenshots/embedding_response.png)
+
+Full training output, all responses and screenshots: **[docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)**.
 
 ---
 

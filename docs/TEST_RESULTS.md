@@ -32,6 +32,30 @@ One CIFAR-10 test image per class, in [`sample_images/`](../sample_images):
 | ![airplane](../sample_images/airplane.png)<br>airplane | ![automobile](../sample_images/automobile.png)<br>automobile | ![bird](../sample_images/bird.png)<br>bird | ![cat](../sample_images/cat.png)<br>cat | ![deer](../sample_images/deer.png)<br>deer |
 | ![dog](../sample_images/dog.png)<br>dog | ![frog](../sample_images/frog.png)<br>frog | ![horse](../sample_images/horse.png)<br>horse | ![ship](../sample_images/ship.png)<br>ship | ![truck](../sample_images/truck.png)<br>truck |
 
+### `POST /classify` through Docker
+
+Request: `cat.png` from `sample_images/`, `top_k=3`, sent from the Swagger UI of the Docker container (`docker run -p 8000:80 sps-genai`).
+
+**Response: `200 OK`**
+
+```json
+{
+  "filename": "cat.png",
+  "predicted_class": "cat",
+  "class_index": 3,
+  "confidence": 0.8627,
+  "top_predictions": [
+    {"class": "cat", "probability": 0.8627},
+    {"class": "dog", "probability": 0.1123},
+    {"class": "bird", "probability": 0.0151}
+  ]
+}
+```
+
+**Result:** correctly classified as **cat** with 86.27% confidence; the runner-up classes (dog, bird) are the visually closest ones. ✅
+
+![POST /classify with cat.png, served from the Docker container](screenshots/classify_cat_docker.png)
+
 ---
 
 # Assignment 1 Results
