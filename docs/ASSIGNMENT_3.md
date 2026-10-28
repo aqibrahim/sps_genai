@@ -58,7 +58,7 @@ Full per-epoch history: [`models/gan_metrics.json`](../models/gan_metrics.json).
 | --- | --- | --- | --- | --- |
 | ![](screenshots/gan_epoch_01.png) | ![](screenshots/gan_epoch_05.png) | ![](screenshots/gan_epoch_10.png) | ![](screenshots/gan_epoch_20.png) | ![](screenshots/gan_epoch_30.png) |
 
-Because the input noise is fixed, each grid position shows how the *same* sample evolves. After epoch 1 the outputs are blurry, noisy blobs with only rough digit outlines. By epoch 5 most samples are recognizable digits, and from epoch 10 to 30 the strokes become thinner, smoother and more consistent, with fewer broken or extra marks. Each sample keeps its identity (the 8 in the top-left corner stays an 8 and gets cleaner), which shows the generator has learned a stable mapping from noise to digits.
+Because the input noise is fixed, each grid position shows how the *same* sample evolves. After epoch 1 the outputs are blurry, noisy blobs with only rough digit outlines. By epoch 5 most samples are recognizable digits, and from epoch 10 to 30 the strokes become thinner, smoother and more consistent, with fewer broken or extra marks. Early on, some samples still change which digit they show (the top-left sample is a 3 at epoch 5 and a 5 at epoch 10), but by epoch 20 each sample has settled on a stable identity (the top-left becomes an 8 and stays an 8 at epoch 30, just cleaner). This shows the generator converging to a stable mapping from noise to digits.
 
 ### Final samples (64 new digits, different noise)
 
@@ -72,8 +72,8 @@ All ten digits (0–9) appear with varied slant, thickness and style, so the gen
 
 **Interpretation.**
 
-- **The discriminator stays ahead.** D(x) rises from 0.81 to 0.89 and D(G(z)) falls from 0.20 to 0.11, so the discriminator separates real from generated digits more confidently over time. A perfect equilibrium would put both near 0.5.
-- **The generator loss rises, but the images improve.** The generator loss, −log D(G(z)), grows from about 1.8 to 3.2 because the discriminator keeps getting better at spotting fakes. In a GAN the losses measure each network *against the other*, not absolute quality: the generator is improving, but the discriminator improves slightly faster. The sample grids are the real measure of quality, and they get steadily better.
+- **Two phases.** In the first 5 epochs the generator catches up quickly: D(G(z)) rises from 0.20 to its peak of 0.24 and D(x) dips from 0.81 to 0.76, so the discriminator is briefly less sure. After that the discriminator pulls ahead again: by epoch 30, D(x) = 0.89 and D(G(z)) = 0.11, so it separates real from generated digits more confidently. A perfect equilibrium would put both near 0.5.
+- **The generator loss rises, but the images improve.** The generator loss, −log D(G(z)), falls from 2.35 to its lowest point of 1.78 at epoch 4 and then grows to 3.22 by epoch 30 because the discriminator keeps getting better at spotting fakes. In a GAN the losses measure each network *against the other*, not absolute quality: the generator is improving, but the discriminator improves slightly faster. The sample grids are the real measure of quality, and they get steadily better.
 - **Training is stable.** There is no collapse (the discriminator loss never goes to 0 and D(G(z)) never goes to 0), no oscillation, and no mode collapse. The non-saturating loss is what keeps the generator learning here: even with D(G(z)) ≈ 0.11, −log D(G(z)) still gives a strong gradient, whereas the original log(1 − D(G(z))) loss would give a very weak one (the vanishing-gradient problem from the lecture).
 - **Possible improvements:** one-sided label smoothing (real label 0.9) or a slightly larger generator would balance the two networks; longer training would sharpen the remaining imperfect digits.
 
