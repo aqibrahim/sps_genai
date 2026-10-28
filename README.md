@@ -99,7 +99,7 @@ After 30 epochs the generator produces recognizable digits from all ten classes 
 | --- | --- | --- |
 | ![](docs/screenshots/gan_epoch_01.png) | ![](docs/screenshots/gan_epoch_10.png) | ![](docs/screenshots/gan_epoch_30.png) |
 
-Final D(x) = 0.886 on real digits and D(G(z)) = 0.114 on generated ones. Training curves, interpretation and the Docker API tests: [docs/ASSIGNMENT_3.md](docs/ASSIGNMENT_3.md).
+Final D(x) = 0.886 on real digits and D(G(z)) = 0.114 on generated ones. Step-by-step walkthrough (shape calculations, training algorithm, design choices), per-epoch metrics, training curves and the Docker API tests: [docs/ASSIGNMENT_3.md](docs/ASSIGNMENT_3.md).
 
 ### Generate digits
 
