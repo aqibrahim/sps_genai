@@ -91,7 +91,12 @@ All ten digits (0–9) appear with varied slant, thickness and style, so the gen
 
 ![POST /gan/generate in Swagger](screenshots/gan_post_swagger.png)
 
-## Automated tests
+## Automated tests and continuous integration
+
+[![CI](https://github.com/aqibrahim/sps_genai/actions/workflows/ci.yml/badge.svg)](https://github.com/aqibrahim/sps_genai/actions/workflows/ci.yml)
+
+Every push is also checked by GitHub Actions on x86-64 Linux: the full test suite, plus a fresh Docker build that starts the container and queries `GET` and `POST /gan/generate` (and every earlier assignment's endpoints). So the deployment is verified on both Apple Silicon (screenshots above) and standard x86-64 machines.
+
 
 `uv run --with pytest pytest -v` runs **46 tests, all passing**. The 15 new Assignment 3 tests check every generator and discriminator layer's output shape and settings against the spec (kernel 4, stride 2, padding 1, LeakyReLU slope 0.2, BatchNorm placement), the Tanh output range, the sigmoid probability output, the parameter counts, seed reproducibility, and the `/gan` endpoints (PNG size, JSON format, input validation).
 

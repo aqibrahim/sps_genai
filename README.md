@@ -1,6 +1,13 @@
 # SPS GenAI API – Assignments 1, 2 & 3
 
+[![CI](https://github.com/aqibrahim/sps_genai/actions/workflows/ci.yml/badge.svg)](https://github.com/aqibrahim/sps_genai/actions/workflows/ci.yml)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
+![Tests: 46 passing](https://img.shields.io/badge/tests-46%20passing-brightgreen)
+![Docker](https://img.shields.io/badge/docker-x86--64%20%7C%20arm64-blue)
+
 **Author:** Aqib Rahim · **Course:** Applied Generative AI
+
+**Verified on every push:** GitHub Actions runs the full test suite and builds the Docker image on x86-64 Linux, starts the container and queries the endpoints of every assignment (see [Continuous integration](#continuous-integration)). The image was also built and tested on Apple Silicon (arm64).
 
 A FastAPI service with four models:
 
@@ -345,6 +352,7 @@ sps_genai/
 ├── train_cifar10.py         # Trains the CNN and saves it to models/
 ├── evaluate_cifar10.py      # Per-class accuracy and confusion matrix
 ├── tests/                   # pytest: architecture, helper library, API endpoints
+├── .github/workflows/ci.yml # CI: tests + Docker build and API checks on every push
 ├── Dockerfile
 ├── pyproject.toml           # Dependencies (CPU-only PyTorch on Linux/Docker)
 ├── uv.lock
@@ -364,6 +372,19 @@ uv run --with pytest pytest -v
 ```
 
 `--with pytest` adds pytest only for this command, so it is not installed in the Docker image.
+
+---
+
+## Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs automatically on every push, on GitHub's x86-64 Linux machines, independently of the development machine:
+
+| Job | What it checks |
+| --- | --- |
+| **Tests (pytest)** | Installs the exact locked dependencies (`uv sync --frozen`) and runs all 46 tests |
+| **Docker build and API check** | Builds the Docker image from scratch, starts the container, and queries `POST /embedding` (A1), `POST /generate` (Module 3), `POST /classify` with `sample_images/cat.png` (A2), and `GET`/`POST /gan/generate` (A3); fails if any endpoint does not return a valid response |
+
+Results: [Actions tab](https://github.com/aqibrahim/sps_genai/actions/workflows/ci.yml). The Docker job also saves the generated digit grid as a downloadable artifact.
 
 ---
 
