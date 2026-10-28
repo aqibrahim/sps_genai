@@ -1,4 +1,4 @@
-"""Data loading for CIFAR-10."""
+"""Data loading for CIFAR-10 (Assignment 2) and MNIST (Assignment 3)."""
 import torch
 from torchvision import datasets, transforms
 
@@ -33,3 +33,15 @@ def get_data_loader(data_dir, batch_size=32, train=True, image_size=64, download
         dataset, batch_size=batch_size, shuffle=train, num_workers=num_workers,
     )
     return loader
+
+
+def get_mnist_loader(data_dir, batch_size=128, train=True, download=True, num_workers=2):
+    """MNIST digits (1x28x28), scaled to [-1, 1] to match the generator's Tanh output."""
+    transform = transforms.Compose([
+        transforms.ToTensor(),                 # [0, 1]
+        transforms.Normalize((0.5,), (0.5,)),  # -> [-1, 1]
+    ])
+    dataset = datasets.MNIST(root=data_dir, train=train, download=download, transform=transform)
+    return torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, shuffle=train, num_workers=num_workers, drop_last=train,
+    )

@@ -1,12 +1,13 @@
-# SPS GenAI API – Assignments 1 & 2
+# SPS GenAI API – Assignments 1, 2 & 3
 
 **Author:** Aqib Rahim · **Course:** Applied Generative AI
 
-A FastAPI service with three models:
+A FastAPI service with four models:
 
 | Model | What it does | Source |
 | --- | --- | --- |
-| **CIFAR-10 CNN classifier** | Classifies an uploaded image into one of 10 CIFAR-10 classes | Module 4 → **Assignment 2 (new)** |
+| **MNIST GAN** | Generates new hand-written digits from random noise | Module 6 → **Assignment 3 (new)** |
+| **CIFAR-10 CNN classifier** | Classifies an uploaded image into one of 10 CIFAR-10 classes | Module 4 → Assignment 2 |
 | **spaCy word embeddings** | Returns the 300-dimensional embedding vector for a query word | Module 2 → Assignment 1 |
 | **Bigram text generator** | Generates text from a start word using bigram probabilities | Module 3 class activity |
 
@@ -18,6 +19,7 @@ Each assignment builds on the same API, so they share one repository. Every assi
 
 | Assignment | Topic | New endpoints | Details and results | Snapshot |
 | --- | --- | --- | --- | --- |
+| **Assignment 3** | GAN digit generator (MNIST) | `GET /gan/generate` (PNG), `POST /gan/generate` (JSON), `GET /gan/info` | [docs/ASSIGNMENT_3.md](docs/ASSIGNMENT_3.md) | [`assignment-3`](https://github.com/aqibrahim/sps_genai/tree/assignment-3) |
 | **Assignment 2** | CNN image classifier (CIFAR-10) | `POST /classify`, `GET /classify/classes` | [docs/ASSIGNMENT_2.md](docs/ASSIGNMENT_2.md) | [`assignment-2`](https://github.com/aqibrahim/sps_genai/tree/assignment-2) |
 | **Assignment 1** | spaCy word embeddings | `POST /embedding`, `GET /embedding/{word}`, `POST /similarity` | [docs/ASSIGNMENT_1.md](docs/ASSIGNMENT_1.md) | [`assignment-1`](https://github.com/aqibrahim/sps_genai/tree/assignment-1) |
 
@@ -36,12 +38,73 @@ docker build -t sps-genai .
 docker run -p 8000:80 sps-genai
 ```
 
-- The first build takes several minutes (it downloads Python, CPU-only PyTorch, spaCy and the `en_core_web_md` model). The trained CNN weights are already in `models/`, so no training is needed.
+- The first build takes several minutes (it downloads Python, CPU-only PyTorch, spaCy and the `en_core_web_md` model). The trained CNN and GAN weights are already in `models/`, so no training is needed.
 - The server is ready when the log shows: `Uvicorn running on http://0.0.0.0:80`
 - Open **http://127.0.0.1:8000/docs** in a browser.
 - Stop the server with **Ctrl+C**.
 
 The container listens on port 80 internally; `-p 8000:80` maps it to port 8000 on your machine. The image works on both Intel/AMD (x86_64) and Apple Silicon (arm64) machines.
+
+---
+
+## Assignment 3: GAN for hand-written digits
+
+### Architecture (`helper_lib/model.py`, `get_model("GAN")`)
+
+**Generator** (`Generator`, 765,761 parameters)
+
+| Layer | Configuration | Output shape |
+| --- | --- | --- |
+| Input | Noise vector | (B, 100) |
+| Linear | 100 → 7·7·128 | (B, 6272) |
+| Reshape | | (B, 128, 7, 7) |
+| ConvTranspose2d | 128 → 64, kernel 4, stride 2, padding 1 | (B, 64, 14, 14) |
+| BatchNorm2d + ReLU | | (B, 64, 14, 14) |
+| ConvTranspose2d | 64 → 1, kernel 4, stride 2, padding 1 | (B, 1, 28, 28) |
+| Tanh | pixels in [-1, 1] | (B, 1, 28, 28) |
+
+**Discriminator** (`Discriminator`, 138,817 parameters)
+
+| Layer | Configuration | Output shape |
+| --- | --- | --- |
+| Input | Image | (B, 1, 28, 28) |
+| Conv2d + LeakyReLU(0.2) | 1 → 64, kernel 4, stride 2, padding 1 | (B, 64, 14, 14) |
+| Conv2d | 64 → 128, kernel 4, stride 2, padding 1 | (B, 128, 7, 7) |
+| BatchNorm2d + LeakyReLU(0.2) | | (B, 128, 7, 7) |
+| Flatten | | (B, 6272) |
+| Linear + Sigmoid | 6272 → 1, real/fake probability | (B, 1) |
+
+### Training
+
+MNIST images are scaled to [-1, 1] to match the generator's Tanh output. Each batch updates the discriminator on real images (label 1) and generated images (label 0), then updates the generator with the non-saturating loss (generated images labelled 1, as in the Module 6 lecture). Adam (lr 0.0002, betas 0.5/0.999), BCE loss, batch size 128, DCGAN weight initialization:
+
+```bash
+uv run --with matplotlib python train_gan_mnist.py   # 30 epochs by default
+```
+
+It saves `models/gan_generator.pth` (used by the API), `models/gan_discriminator.pth`, `models/gan_metrics.json`, sample grids from epochs 1, 5, 10, 20 and 30 (same fixed noise, to show progress) and the loss curves in `docs/screenshots/`.
+
+### Generate digits
+
+**Browser:** open http://127.0.0.1:8000/gan/generate?num_images=16&seed=42 to see a PNG grid of 16 new digits. In Swagger (`/docs`), **GET /gan/generate** shows the image directly.
+
+**curl:**
+
+```bash
+# PNG image
+curl "http://127.0.0.1:8000/gan/generate?num_images=16&seed=42" -o digits.png
+
+# JSON: base64 PNG plus the discriminator's "realness" score for each digit
+curl -X POST http://127.0.0.1:8000/gan/generate \
+  -H "Content-Type: application/json" \
+  -d '{"num_images": 9, "seed": 42}'
+```
+
+| Parameter | Range | Meaning |
+| --- | --- | --- |
+| `num_images` | 1–64 (default 16) | number of digits, arranged in a square grid |
+| `seed` | any integer (optional) | same seed → same digits; omit for new random digits |
+| `scale` | 1–8 (default 4) | upscaling of the 28×28 digits so they are easy to see |
 
 ---
 
@@ -213,6 +276,9 @@ Expected (output is random, so it varies each call): `{"generated_text": "the co
 | POST | `/embedding` | `{"word": "king"}` | `word`, `in_vocabulary`, `dimension`, `embedding` (list of 300 floats) |
 | GET | `/embedding/{word}` | word in the URL | same as `POST /embedding` |
 | POST | `/similarity` | `{"word1": "king", "word2": "queen"}` | cosine similarity between the two word vectors |
+| GET | `/gan/generate` | query `num_images` (1–64), `seed`, `scale` (1–8) | PNG image grid of generated digits |
+| POST | `/gan/generate` | `{"num_images": 9, "seed": 42}` | `image_base64` (PNG), `discriminator_scores`, `image_shape` |
+| GET | `/gan/info` | – | GAN architecture summary |
 | POST | `/classify` | image file upload (form field `file`), optional `?top_k=1..10` | `predicted_class`, `class_index`, `confidence`, `top_predictions` |
 | GET | `/classify/classes` | – | the 10 class names and the model's test accuracy |
 | POST | `/generate` | `{"start_word": "the", "length": 10}` | `generated_text` (`length` must be 1–100) |
@@ -245,19 +311,23 @@ sps_genai/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py              # FastAPI app and endpoints
+│   ├── digit_generator.py   # MNIST GAN generation wrapper (Assignment 3)
 │   ├── image_classifier.py  # CIFAR-10 inference wrapper (Assignment 2)
 │   ├── embedding_model.py   # spaCy word-embedding model (Assignment 1)
 │   └── bigram_model.py      # Bigram text generator (Module 3)
 ├── helper_lib/              # Reusable neural-network library (Module 4)
-│   ├── data_loader.py       # CIFAR-10 loaders and transforms
-│   ├── model.py             # FCNN, CNN (Assignment 2 spec), EnhancedCNN
-│   ├── trainer.py           # Training loop
+│   ├── data_loader.py       # CIFAR-10 and MNIST loaders and transforms
+│   ├── model.py             # FCNN, CNN (A2), EnhancedCNN, GAN Generator/Discriminator (A3)
+│   ├── trainer.py           # Training loops (classifier and GAN)
+│   ├── generator.py         # GAN sampling and image grids
 │   ├── evaluator.py         # Test loss and accuracy
 │   └── utils.py             # Save/load model, device selection
 ├── models/
+│   ├── gan_generator.pth    # Trained GAN generator (and discriminator, metrics)
 │   ├── cifar10_cnn.pth      # Trained CNN weights
 │   └── cifar10_cnn_metrics.json
 ├── sample_images/           # One CIFAR-10 test image per class
+├── train_gan_mnist.py       # Trains the GAN on MNIST (Assignment 3)
 ├── train_cifar10.py         # Trains the CNN and saves it to models/
 ├── evaluate_cifar10.py      # Per-class accuracy and confusion matrix
 ├── tests/                   # pytest: architecture, helper library, API endpoints
@@ -265,7 +335,7 @@ sps_genai/
 ├── pyproject.toml           # Dependencies (CPU-only PyTorch on Linux/Docker)
 ├── uv.lock
 ├── probability_solutions.py # Assignment 1 Part 2 calculation checks
-├── docs/                    # ASSIGNMENT_1.md, ASSIGNMENT_2.md, screenshots
+├── docs/                    # ASSIGNMENT_1/2/3.md, screenshots
 └── README.md
 ```
 
@@ -273,7 +343,7 @@ sps_genai/
 
 ## Automated tests
 
-The `tests/` folder (31 tests, **all passing**) checks the CNN architecture layer by layer against the assignment spec, the helper library, and every API endpoint (including error cases):
+The `tests/` folder checks the CNN (Assignment 2) and the GAN generator and discriminator (Assignment 3) layer by layer against the assignment specs, the helper library, and every API endpoint (including error cases):
 
 ```bash
 uv run --with pytest pytest -v
@@ -304,5 +374,6 @@ Then open http://127.0.0.1:8000/docs.
 | `docker build requires 1 argument` | Add the `.` at the end: `docker build -t sps-genai .` |
 | `port is already allocated` | Port 8000 is in use. Run on another port: `docker run -p 8001:80 sps-genai`, then open http://127.0.0.1:8001/docs |
 | Page doesn't load right after `docker run` | Wait for the `Uvicorn running` log line; the spaCy model takes a few seconds to load. |
+| `/gan/generate` returns 503 | `models/gan_generator.pth` is missing. Run `uv run python train_gan_mnist.py`, then rebuild the Docker image. |
 | `/classify` returns 503 | `models/cifar10_cnn.pth` is missing. Run `uv run python train_cifar10.py`, then rebuild the Docker image. |
 | `"in_vocabulary": false` | The word isn't in spaCy's vocabulary. Try a common English word such as `king`, `apple` or `computer`. |
