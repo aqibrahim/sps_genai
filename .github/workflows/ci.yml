@@ -1,0 +1,65 @@
+# Runs on every push: the full test suite, then a Docker build + live API checks,
+# on GitHub's x86-64 Linux machines (independent of the Apple Silicon Mac used for development).
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install dependencies from uv.lock
+        run: uv sync --frozen
+      - name: Run test suite
+        run: uv run --with pytest pytest -v
+
+  docker:
+    name: Docker build and API check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t sps-genai .
+      - name: Start container
+        run: docker run -d -p 8000:80 --name api sps-genai
+      - name: Wait for the API to start
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8000/ > /dev/null; then echo "API is up"; exit 0; fi
+            sleep 2
+          done
+          docker logs api
+          exit 1
+      - name: Query every assignment's endpoints
+        run: |
+          set -e
+          echo "--- Assignment 1: POST /embedding"
+          curl -sf -X POST http://127.0.0.1:8000/embedding -H "Content-Type: application/json" \
+            -d '{"word": "king"}' | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['dimension']==300; print('king ->', d['dimension'], 'dims')"
+          echo "--- Module 3: POST /generate"
+          curl -sf -X POST http://127.0.0.1:8000/generate -H "Content-Type: application/json" \
+            -d '{"start_word": "the", "length": 8}'
+          echo
+          echo "--- Assignment 2: POST /classify"
+          curl -sf -X POST "http://127.0.0.1:8000/classify?top_k=3" -F "file=@sample_images/cat.png" \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print('cat.png ->', d['predicted_class'], d['confidence'])"
+          echo "--- Assignment 3: GET /gan/generate"
+          curl -sf "http://127.0.0.1:8000/gan/generate?num_images=16&seed=42" -o digits.png
+          python3 -c "import struct; h=open('digits.png','rb').read(24); assert h[:8]==b'\x89PNG\r\n\x1a\n'; w,ht=struct.unpack('>II',h[16:24]); print('PNG', w, 'x', ht)"
+          echo "--- Assignment 3: POST /gan/generate"
+          curl -sf -X POST http://127.0.0.1:8000/gan/generate -H "Content-Type: application/json" \
+            -d '{"num_images": 9, "seed": 42}' | python3 -c "import json,sys; d=json.load(sys.stdin); print('9 digits, discriminator scores:', d['discriminator_scores'])"
+      - name: Upload generated digits
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-digits
+          path: digits.png
+      - name: Container logs
+        if: always()
+        run: docker logs api
