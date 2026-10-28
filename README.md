@@ -84,6 +84,16 @@ uv run --with matplotlib python train_gan_mnist.py   # 30 epochs by default
 
 It saves `models/gan_generator.pth` (used by the API), `models/gan_discriminator.pth`, `models/gan_metrics.json`, sample grids from epochs 1, 5, 10, 20 and 30 (same fixed noise, to show progress) and the loss curves in `docs/screenshots/`.
 
+### Results
+
+After 30 epochs the generator produces recognizable digits from all ten classes (no mode collapse). Same noise at epochs 1 → 10 → 30:
+
+| Epoch 1 | Epoch 10 | Epoch 30 |
+| --- | --- | --- |
+| ![](docs/screenshots/gan_epoch_01.png) | ![](docs/screenshots/gan_epoch_10.png) | ![](docs/screenshots/gan_epoch_30.png) |
+
+Final D(x) = 0.886 on real digits and D(G(z)) = 0.114 on generated ones. Training curves, interpretation and the Docker API tests: [docs/ASSIGNMENT_3.md](docs/ASSIGNMENT_3.md).
+
 ### Generate digits
 
 **Browser:** open http://127.0.0.1:8000/gan/generate?num_images=16&seed=42 to see a PNG grid of 16 new digits. In Swagger (`/docs`), **GET /gan/generate** shows the image directly.
@@ -202,6 +212,10 @@ Any PNG or JPEG of any size works. Uploaded images are shrunk to 32×32 and upsc
 
 ## Verified results
 
+**Assignment 3:** `GET /gan/generate?num_images=16&seed=42`, served from the Docker container, returns 16 generated digits:
+
+![GET /gan/generate in Swagger](docs/screenshots/gan_get_swagger.png)
+
 **Assignment 2:** the CNN reaches **69.70% test accuracy** on CIFAR-10. Through the Docker container, `POST /classify` with `sample_images/cat.png` returns **cat** with 86.27% confidence:
 
 ![POST /classify response from the Docker container](docs/screenshots/classify_cat_docker.png)
@@ -210,7 +224,7 @@ Any PNG or JPEG of any size works. Uploaded images are shrunk to 32×32 and upsc
 
 ![POST /embedding response](docs/screenshots/embedding_response.png)
 
-Full results and screenshots: **[Assignment 2](docs/ASSIGNMENT_2.md)** · **[Assignment 1](docs/ASSIGNMENT_1.md)**.
+Full results and screenshots: **[Assignment 3](docs/ASSIGNMENT_3.md)** · **[Assignment 2](docs/ASSIGNMENT_2.md)** · **[Assignment 1](docs/ASSIGNMENT_1.md)**.
 
 ---
 
@@ -343,7 +357,7 @@ sps_genai/
 
 ## Automated tests
 
-The `tests/` folder checks the CNN (Assignment 2) and the GAN generator and discriminator (Assignment 3) layer by layer against the assignment specs, the helper library, and every API endpoint (including error cases):
+The `tests/` folder (46 tests, **all passing**) checks the CNN (Assignment 2) and the GAN generator and discriminator (Assignment 3) layer by layer against the assignment specs, the helper library, and every API endpoint (including error cases):
 
 ```bash
 uv run --with pytest pytest -v
