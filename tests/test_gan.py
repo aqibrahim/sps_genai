@@ -132,3 +132,26 @@ def test_gan_generate_validation(client, query):
 def test_gan_info(client):
     body = client.get("/gan/info").json()
     assert body["latent_dim"] == 100 and body["output_shape"] == [1, 28, 28]
+
+
+def test_api_uses_helper_lib_models():
+    """main.py builds the Part 1 architectures from helper_lib and loads the trained weights."""
+    from app import main
+    from helper_lib.model import CNN
+
+    assert isinstance(main.generator, Generator)
+    assert isinstance(main.discriminator, Discriminator)
+    assert isinstance(main.image_classifier.model, CNN)
+    assert main.generator.latent_dim == 100
+    assert not main.generator.training and not main.discriminator.training  # eval mode for inference
+
+
+def test_gan_info_lists_actual_layers(client):
+    body = client.get("/gan/info").json()
+    gen_layers = " ".join(body["generator"]["layers"])
+    disc_layers = " ".join(body["discriminator"]["layers"])
+    assert "ConvTranspose2d(128, 64, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))" in gen_layers
+    assert "Conv2d(64, 128, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))" in disc_layers
+    assert "LeakyReLU(negative_slope=0.2)" in disc_layers
+    assert body["generator"]["parameters"] == 765_761
+    assert body["discriminator"]["parameters"] == 138_817

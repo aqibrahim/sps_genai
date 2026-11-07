@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/aqibrahim/sps_genai/actions/workflows/ci.yml/badge.svg)](https://github.com/aqibrahim/sps_genai/actions/workflows/ci.yml)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
-![Tests: 46 passing](https://img.shields.io/badge/tests-46%20passing-brightgreen)
+![Tests: 46 passing](https://img.shields.io/badge/tests-48%20passing-brightgreen)
 ![Docker](https://img.shields.io/badge/docker-x86--64%20%7C%20arm64-blue)
 
 **Author:** Aqib Rahim · **Course:** Applied Generative AI
@@ -319,6 +319,7 @@ Expected (output is random, so it varies each call): `{"generated_text": "the co
 - **Embeddings** (`app/embedding_model.py`): loads spaCy's `en_core_web_md` model once at startup. For a query word it returns the token's static 300-dimensional vector (`token.vector`). Similarity is the cosine similarity of two word vectors (`token.similarity`).
 - **Bigram model** (`app/bigram_model.py`): tokenizes a small corpus, counts word pairs, and converts them to conditional probabilities P(next word | current word). Generation samples each next word from those probabilities, stopping early if a word has no known continuation.
 - **CNN classifier** (`helper_lib/`, `app/image_classifier.py`): the Module 4 helper library holds the data loading, model definitions, training loop and evaluation. `train_cifar10.py` uses it to train the Assignment 2 CNN; the API loads the saved weights once at startup and runs inference on uploaded images.
+- **GAN generator** (`helper_lib/`, `app/main.py`): `main.py` imports `Generator` and `Discriminator` from `helper_lib.model`, builds them with the Assignment 3 architecture, and loads the trained weights at startup; `helper_lib/generator.py` samples digits and turns them into PNG grids. In the same way, `main.py` builds the Assignment 2 `CNN` from `helper_lib.model` and passes it to `app/image_classifier.py` for preprocessing and prediction.
 - **API** (`app/main.py`): FastAPI routes with Pydantic request models for input validation.
 
 PyTorch is installed from the official CPU-only index on Linux (inside Docker), which keeps the image smaller and needs no GPU on the grader's machine; macOS and Windows use the regular PyPI build. The spaCy model is pinned as a dependency in `pyproject.toml` and locked in `uv.lock`, so `uv sync` (and the Docker build) installs it automatically. No separate `python -m spacy download` step is needed.
@@ -331,9 +332,8 @@ PyTorch is installed from the official CPU-only index on Linux (inside Docker), 
 sps_genai/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py              # FastAPI app and endpoints
-│   ├── digit_generator.py   # MNIST GAN generation wrapper (Assignment 3)
-│   ├── image_classifier.py  # CIFAR-10 inference wrapper (Assignment 2)
+│   ├── main.py              # FastAPI app: builds CNN, Generator, Discriminator from helper_lib; endpoints
+│   ├── image_classifier.py  # CIFAR-10 preprocessing and prediction (Assignment 2)
 │   ├── embedding_model.py   # spaCy word-embedding model (Assignment 1)
 │   └── bigram_model.py      # Bigram text generator (Module 3)
 ├── helper_lib/              # Reusable neural-network library (Module 4)
@@ -365,7 +365,7 @@ sps_genai/
 
 ## Automated tests
 
-The `tests/` folder (46 tests, **all passing**) checks the CNN (Assignment 2) and the GAN generator and discriminator (Assignment 3) layer by layer against the assignment specs, the helper library, and every API endpoint (including error cases):
+The `tests/` folder (48 tests, **all passing**) checks the CNN (Assignment 2) and the GAN generator and discriminator (Assignment 3) layer by layer against the assignment specs, the helper library, and every API endpoint (including error cases):
 
 ```bash
 uv run --with pytest pytest -v
@@ -381,7 +381,7 @@ uv run --with pytest pytest -v
 
 | Job | What it checks |
 | --- | --- |
-| **Tests (pytest)** | Installs the exact locked dependencies (`uv sync --frozen`) and runs all 46 tests |
+| **Tests (pytest)** | Installs the exact locked dependencies (`uv sync --frozen`) and runs all 48 tests |
 | **Docker build and API check** | Builds the Docker image from scratch, starts the container, and queries `POST /embedding` (A1), `POST /generate` (Module 3), `POST /classify` with `sample_images/cat.png` (A2), and `GET`/`POST /gan/generate` (A3); fails if any endpoint does not return a valid response |
 
 Results: [Actions tab](https://github.com/aqibrahim/sps_genai/actions/workflows/ci.yml). The Docker job also saves the generated digit grid as a downloadable artifact.

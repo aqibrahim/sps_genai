@@ -16,7 +16,7 @@
 | Helper library (Module 4) | [`helper_lib/`](../helper_lib): data loader, trainer, evaluator, utils |
 | Training script | [`train_cifar10.py`](../train_cifar10.py) |
 | Trained model | [`models/cifar10_cnn.pth`](../models), metrics in [`models/cifar10_cnn_metrics.json`](../models/cifar10_cnn_metrics.json) |
-| Inference wrapper | [`app/image_classifier.py`](../app/image_classifier.py) |
+| API | [`app/main.py`](../app/main.py) builds `CNN` from `helper_lib.model` and loads the trained weights; [`app/image_classifier.py`](../app/image_classifier.py) handles preprocessing and prediction |
 | API endpoints | [`app/main.py`](../app/main.py): `POST /classify`, `GET /classify/classes` |
 | Test images | [`sample_images/`](../sample_images): one CIFAR-10 test image per class |
 

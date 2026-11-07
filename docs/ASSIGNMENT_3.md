@@ -18,7 +18,7 @@
 | Sampling and image grids | [`helper_lib/generator.py`](../helper_lib/generator.py) |
 | Training script | [`train_gan_mnist.py`](../train_gan_mnist.py) |
 | Trained models | [`models/gan_generator.pth`](../models), [`models/gan_discriminator.pth`](../models), [`models/gan_metrics.json`](../models/gan_metrics.json) |
-| API wrapper and endpoints | [`app/digit_generator.py`](../app/digit_generator.py), [`app/main.py`](../app/main.py): `GET /gan/generate`, `POST /gan/generate`, `GET /gan/info` |
+| API | [`app/main.py`](../app/main.py): imports `Generator` and `Discriminator` from `helper_lib.model`, builds them with the Part 1 architecture, loads the trained weights; endpoints `GET /gan/generate`, `POST /gan/generate`, `GET /gan/info` |
 | Tests | [`tests/test_gan.py`](../tests/test_gan.py) |
 
 The architecture tables (every layer with its output shape) are in the [README](../README.md#assignment-3-gan-for-hand-written-digits).
@@ -114,7 +114,7 @@ Per epoch the trainer records the average D loss, G loss, D(x) (mean score on re
 
 ### Step 6: Serving the model through the API
 
-When the API starts, [`app/digit_generator.py`](../app/digit_generator.py) loads `models/gan_generator.pth` (and the discriminator) once and switches both to **eval mode**, so batch norm uses the running statistics learned during training instead of per-request batch statistics. Each request to `/gan/generate` then:
+When the API starts, [`app/main.py`](../app/main.py) imports `Generator` and `Discriminator` from `helper_lib.model`, builds them with the Part 1 architecture (`Generator(latent_dim=100)` and `Discriminator()`), loads the trained weights from `models/gan_generator.pth` and `models/gan_discriminator.pth` with `helper_lib.utils.load_model`, and switches both to **eval mode**, so batch norm uses the running statistics learned during training instead of per-request batch statistics. `GET /gan/info` lists the loaded models' actual layers and parameter counts, so the architecture serving the API can be checked directly. Each request to `/gan/generate` then:
 
 1. creates a random-number generator from `seed` (if given), so the **same seed always returns the same digits**;
 2. samples `num_images` noise vectors of size 100;
@@ -239,6 +239,6 @@ Training with seed 42 regenerates the models, metrics and progress grids. Exact 
 Every push is also checked by GitHub Actions on x86-64 Linux: the full test suite, plus a fresh Docker build that starts the container and queries `GET` and `POST /gan/generate` (and every earlier assignment's endpoints). So the deployment is verified on both Apple Silicon (screenshots above) and standard x86-64 machines.
 
 
-`uv run --with pytest pytest -v` runs **46 tests, all passing**. The 15 new Assignment 3 tests check every generator and discriminator layer's output shape and settings against the spec (kernel 4, stride 2, padding 1, LeakyReLU slope 0.2, BatchNorm placement), the Tanh output range, the sigmoid probability output, the parameter counts, seed reproducibility, and the `/gan` endpoints (PNG size, JSON format, input validation).
+`uv run --with pytest pytest -v` runs **48 tests, all passing**. The 15 new Assignment 3 tests check every generator and discriminator layer's output shape and settings against the spec (kernel 4, stride 2, padding 1, LeakyReLU slope 0.2, BatchNorm placement), the Tanh output range, the sigmoid probability output, the parameter counts, seed reproducibility, and the `/gan` endpoints (PNG size, JSON format, input validation). Two further tests confirm that `app/main.py` serves the `helper_lib` `Generator`, `Discriminator` and `CNN` (in eval mode) and that `/gan/info` reports their actual layers (kernel 4, stride 2, padding 1, LeakyReLU 0.2) and parameter counts.
 
 ![pytest: 46 passed](screenshots/gan_pytest_results.png)
