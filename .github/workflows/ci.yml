@@ -55,11 +55,23 @@ jobs:
           echo "--- Assignment 3: POST /gan/generate"
           curl -sf -X POST http://127.0.0.1:8000/gan/generate -H "Content-Type: application/json" \
             -d '{"num_images": 9, "seed": 42}' | python3 -c "import json,sys; d=json.load(sys.stdin); print('9 digits, discriminator scores:', d['discriminator_scores'])"
+          echo "--- Assignment 4: GET /diffusion/generate"
+          curl -sf "http://127.0.0.1:8000/diffusion/generate?num_images=4&steps=10&seed=42" -o diffusion.png
+          python3 -c "h=open('diffusion.png','rb').read(8); assert h==b'\x89PNG\r\n\x1a\n'; print('diffusion PNG ok')"
+          echo "--- Assignment 4: POST /ebm/generate (Langevin must lower the energy)"
+          curl -sf -X POST http://127.0.0.1:8000/ebm/generate -H "Content-Type: application/json" \
+            -d '{"num_images": 4, "steps": 100, "seed": 42}' | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['mean_energy_after'] < d['mean_energy_before']; print('energy', d['mean_energy_before'], '->', d['mean_energy_after'])"
+          echo "--- Module 6/7: POST /generate_with_rnn"
+          curl -sf -X POST http://127.0.0.1:8000/generate_with_rnn -H "Content-Type: application/json" \
+            -d '{"start_word": "the count", "length": 20, "seed": 1}'
+          echo
       - name: Upload generated digits
         uses: actions/upload-artifact@v4
         with:
-          name: generated-digits
-          path: digits.png
+          name: generated-images
+          path: |
+            digits.png
+            diffusion.png
       - name: Container logs
         if: always()
         run: docker logs api

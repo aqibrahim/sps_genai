@@ -1,0 +1,45 @@
+{
+  "model": "Diffusion model (U-Net noise predictor, DDPM objective, cosine schedule)",
+  "dataset": "CIFAR-10",
+  "epochs": 15,
+  "batch_size": 128,
+  "learning_rate": 0.001,
+  "optimizer": "AdamW (weight decay 1e-4)",
+  "ema_decay": 0.999,
+  "timesteps": 1000,
+  "sampler": "DDIM, 50 steps",
+  "unet_config": {
+    "image_size": 32,
+    "in_channels": 3,
+    "widths": [
+      32,
+      64,
+      96,
+      128
+    ],
+    "block_depth": 2,
+    "embedding_dim": 32
+  },
+  "unet_parameters": 1950627,
+  "final_loss": 0.0644,
+  "training_minutes": 22.9,
+  "history": {
+    "loss": [
+      0.1473,
+      0.0878,
+      0.0789,
+      0.0743,
+      0.0717,
+      0.0701,
+      0.0686,
+      0.0675,
+      0.0663,
+      0.066,
+      0.0656,
+      0.0655,
+      0.0643,
+      0.0654,
+      0.0644
+    ]
+  }
+}

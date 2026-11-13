@@ -1,19 +1,22 @@
-# SPS GenAI API – Assignments 1, 2 & 3
+# SPS GenAI API – Assignments 1–4
 
 [![CI](https://github.com/aqibrahim/sps_genai/actions/workflows/ci.yml/badge.svg)](https://github.com/aqibrahim/sps_genai/actions/workflows/ci.yml)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
-![Tests: 46 passing](https://img.shields.io/badge/tests-48%20passing-brightgreen)
+![Tests: 46 passing](https://img.shields.io/badge/tests-77%20passing-brightgreen)
 ![Docker](https://img.shields.io/badge/docker-x86--64%20%7C%20arm64-blue)
 
 **Author:** Aqib Rahim · **Course:** Applied Generative AI
 
 **Verified on every push:** GitHub Actions runs the full test suite and builds the Docker image on x86-64 Linux, starts the container and queries the endpoints of every assignment (see [Continuous integration](#continuous-integration)). The image was also built and tested on Apple Silicon (arm64).
 
-A FastAPI service with four models:
+A FastAPI service with seven models:
 
 | Model | What it does | Source |
 | --- | --- | --- |
-| **MNIST GAN** | Generates new hand-written digits from random noise | Module 6 → **Assignment 3 (new)** |
+| **Diffusion model** | Generates CIFAR-10-style images by reverse diffusion (U-Net, DDIM) | Module 8 → **Assignment 4 (new)** |
+| **Energy-based model** | Generates CIFAR-10-style images by Langevin dynamics on a learned energy | Module 8 → **Assignment 4 (new)** |
+| **LSTM text generator** | Generates text in the style of *The Count of Monte Cristo* | Module 6/7 activity (new) |
+| **MNIST GAN** | Generates new hand-written digits from random noise | Module 6 → Assignment 3 |
 | **CIFAR-10 CNN classifier** | Classifies an uploaded image into one of 10 CIFAR-10 classes | Module 4 → Assignment 2 |
 | **spaCy word embeddings** | Returns the 300-dimensional embedding vector for a query word | Module 2 → Assignment 1 |
 | **Bigram text generator** | Generates text from a start word using bigram probabilities | Module 3 class activity |
@@ -26,6 +29,7 @@ Each assignment builds on the same API, so they share one repository. Every assi
 
 | Assignment | Topic | New endpoints | Details and results | Snapshot |
 | --- | --- | --- | --- | --- |
+| **Assignment 4** | Diffusion and energy-based models (CIFAR-10), LSTM text generator | `GET`/`POST /diffusion/generate`, `GET`/`POST /ebm/generate`, `POST /generate_with_rnn`, `/diffusion/info`, `/ebm/info` | [docs/ASSIGNMENT_4.md](docs/ASSIGNMENT_4.md) | [`assignment-4`](https://github.com/aqibrahim/sps_genai/tree/assignment-4) |
 | **Assignment 3** | GAN digit generator (MNIST) | `GET /gan/generate` (PNG), `POST /gan/generate` (JSON), `GET /gan/info` | [docs/ASSIGNMENT_3.md](docs/ASSIGNMENT_3.md) | [`assignment-3`](https://github.com/aqibrahim/sps_genai/tree/assignment-3) |
 | **Assignment 2** | CNN image classifier (CIFAR-10) | `POST /classify`, `GET /classify/classes` | [docs/ASSIGNMENT_2.md](docs/ASSIGNMENT_2.md) | [`assignment-2`](https://github.com/aqibrahim/sps_genai/tree/assignment-2) |
 | **Assignment 1** | spaCy word embeddings | `POST /embedding`, `GET /embedding/{word}`, `POST /similarity` | [docs/ASSIGNMENT_1.md](docs/ASSIGNMENT_1.md) | [`assignment-1`](https://github.com/aqibrahim/sps_genai/tree/assignment-1) |
@@ -51,6 +55,29 @@ docker run -p 8000:80 sps-genai
 - Stop the server with **Ctrl+C**.
 
 The container listens on port 80 internally; `-p 8000:80` maps it to port 8000 on your machine. The image works on both Intel/AMD (x86_64) and Apple Silicon (arm64) machines.
+
+---
+
+## Assignment 4: Diffusion and energy-based models
+
+| Model | Architecture | Training | Result |
+| --- | --- | --- | --- |
+| **Diffusion** (`UNet`, `DiffusionModel`) | U-Net noise predictor, sinusoidal time embedding, 32→16→8→4 with skip connections, 1.95M parameters | DDPM objective (MSE on the noise), cosine schedule, EMA weights, 15 epochs | Varied CIFAR-like scenes; sampled with DDIM in 50 steps |
+| **Energy-based** (`EnergyModel`) | 4 strided convs + 2 linear layers with Swish, 77,793 parameters | Contrastive divergence with Langevin negatives and a replay buffer, 30 epochs | Langevin sampling lowers the energy of noise from 4.60 to 0.01; samples show CIFAR colour palettes and layouts |
+| **LSTM** (`LSTMLanguageModel`) | Embedding 128 → 2-layer LSTM 256 → Linear, 4.77M parameters | Next-word cross-entropy on *The Count of Monte Cristo*, 10 epochs | Validation perplexity 123 |
+
+| Diffusion samples (DDIM, 50 steps) | EBM replay-buffer samples (epoch 30) |
+| --- | --- |
+| ![](docs/screenshots/diffusion_samples_final.png) | ![](docs/screenshots/ebm_buffer_epoch_30.png) |
+
+```bash
+curl "http://127.0.0.1:8000/diffusion/generate?num_images=16&seed=42" -o diffusion.png
+curl "http://127.0.0.1:8000/ebm/generate?num_images=16&seed=42" -o ebm.png
+curl -X POST http://127.0.0.1:8000/generate_with_rnn -H "Content-Type: application/json" \
+  -d '{"start_word": "the count", "length": 30, "seed": 1}'
+```
+
+Step-by-step walkthrough (noise schedule, U-Net, DDIM, Langevin dynamics with gradients on the input, contrastive divergence, LSTM), training curves, results and the Docker tests: **[docs/ASSIGNMENT_4.md](docs/ASSIGNMENT_4.md)**.
 
 ---
 
@@ -231,7 +258,7 @@ Any PNG or JPEG of any size works. Uploaded images are shrunk to 32×32 and upsc
 
 ![POST /embedding response](docs/screenshots/embedding_response.png)
 
-Full results and screenshots: **[Assignment 3](docs/ASSIGNMENT_3.md)** · **[Assignment 2](docs/ASSIGNMENT_2.md)** · **[Assignment 1](docs/ASSIGNMENT_1.md)**.
+Full results and screenshots: **[Assignment 4](docs/ASSIGNMENT_4.md)** · **[Assignment 3](docs/ASSIGNMENT_3.md)** · **[Assignment 2](docs/ASSIGNMENT_2.md)** · **[Assignment 1](docs/ASSIGNMENT_1.md)**.
 
 ---
 
@@ -297,6 +324,12 @@ Expected (output is random, so it varies each call): `{"generated_text": "the co
 | POST | `/embedding` | `{"word": "king"}` | `word`, `in_vocabulary`, `dimension`, `embedding` (list of 300 floats) |
 | GET | `/embedding/{word}` | word in the URL | same as `POST /embedding` |
 | POST | `/similarity` | `{"word1": "king", "word2": "queen"}` | cosine similarity between the two word vectors |
+| GET | `/diffusion/generate` | query `num_images` (1–64), `steps` (5–1000, default 50), `seed`, `scale` | PNG grid of diffusion samples |
+| POST | `/diffusion/generate` | `{"num_images": 9, "steps": 50, "seed": 42}` | `image_base64` (PNG) |
+| GET | `/ebm/generate` | query `num_images`, `steps` (Langevin, default 200), `step_size`, `seed`, `scale` | PNG grid of Langevin samples |
+| POST | `/ebm/generate` | `{"num_images": 9, "seed": 42}` | `image_base64`, `energy_before`, `energy_after` and their means |
+| GET | `/diffusion/info`, `/ebm/info` | – | loaded models' layers and parameter counts |
+| POST | `/generate_with_rnn` | `{"start_word": "the count", "length": 30, "temperature": 0.8, "seed": 1}` | LSTM-generated text |
 | GET | `/gan/generate` | query `num_images` (1–64), `seed`, `scale` (1–8) | PNG image grid of generated digits |
 | POST | `/gan/generate` | `{"num_images": 9, "seed": 42}` | `image_base64` (PNG), `discriminator_scores`, `image_shape` |
 | GET | `/gan/info` | – | GAN architecture summary |
@@ -338,9 +371,10 @@ sps_genai/
 │   └── bigram_model.py      # Bigram text generator (Module 3)
 ├── helper_lib/              # Reusable neural-network library (Module 4)
 │   ├── data_loader.py       # CIFAR-10 and MNIST loaders and transforms
-│   ├── model.py             # FCNN, CNN (A2), EnhancedCNN, GAN Generator/Discriminator (A3)
+│   ├── model.py             # FCNN, CNN (A2), EnhancedCNN, VAE, GAN (A3), UNet/DiffusionModel, EnergyModel (A4), LSTM
 │   ├── trainer.py           # Training loops (classifier and GAN)
-│   ├── generator.py         # GAN sampling and image grids
+│   ├── generator.py         # GAN, DDIM and Langevin sampling, text generation, image grids
+│   ├── text.py              # Tokenizer, vocabulary, next-word dataset
 │   ├── evaluator.py         # Test loss and accuracy
 │   └── utils.py             # Save/load model, device selection
 ├── models/
@@ -348,6 +382,9 @@ sps_genai/
 │   ├── cifar10_cnn.pth      # Trained CNN weights
 │   └── cifar10_cnn_metrics.json
 ├── sample_images/           # One CIFAR-10 test image per class
+├── train_diffusion_cifar10.py # Trains the diffusion model (Assignment 4)
+├── train_ebm_cifar10.py     # Trains the energy-based model (Assignment 4)
+├── train_lstm_text.py       # Trains the LSTM text generator (Module 6/7 activity)
 ├── train_gan_mnist.py       # Trains the GAN on MNIST (Assignment 3)
 ├── train_cifar10.py         # Trains the CNN and saves it to models/
 ├── evaluate_cifar10.py      # Per-class accuracy and confusion matrix
@@ -357,7 +394,7 @@ sps_genai/
 ├── pyproject.toml           # Dependencies (CPU-only PyTorch on Linux/Docker)
 ├── uv.lock
 ├── probability_solutions.py # Assignment 1 Part 2 calculation checks
-├── docs/                    # ASSIGNMENT_1/2/3.md, screenshots
+├── docs/                    # ASSIGNMENT_1/2/3/4.md, screenshots
 └── README.md
 ```
 
@@ -365,7 +402,7 @@ sps_genai/
 
 ## Automated tests
 
-The `tests/` folder (48 tests, **all passing**) checks the CNN (Assignment 2) and the GAN generator and discriminator (Assignment 3) layer by layer against the assignment specs, the helper library, and every API endpoint (including error cases):
+The `tests/` folder (77 tests, **all passing**) checks the CNN (Assignment 2) and the GAN generator and discriminator (Assignment 3) layer by layer against the assignment specs, the helper library, and every API endpoint (including error cases):
 
 ```bash
 uv run --with pytest pytest -v
@@ -381,7 +418,7 @@ uv run --with pytest pytest -v
 
 | Job | What it checks |
 | --- | --- |
-| **Tests (pytest)** | Installs the exact locked dependencies (`uv sync --frozen`) and runs all 48 tests |
+| **Tests (pytest)** | Installs the exact locked dependencies (`uv sync --frozen`) and runs all 77 tests |
 | **Docker build and API check** | Builds the Docker image from scratch, starts the container, and queries `POST /embedding` (A1), `POST /generate` (Module 3), `POST /classify` with `sample_images/cat.png` (A2), and `GET`/`POST /gan/generate` (A3); fails if any endpoint does not return a valid response |
 
 Results: [Actions tab](https://github.com/aqibrahim/sps_genai/actions/workflows/ci.yml). The Docker job also saves the generated digit grid as a downloadable artifact.

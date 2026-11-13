@@ -1,0 +1,76 @@
+{
+  "model": "LSTM word-level language model",
+  "corpus": "The Count of Monte Cristo (Project Gutenberg #1184)",
+  "tokens": 300000,
+  "vocab_size": 10000,
+  "config": {
+    "embedding_dim": 128,
+    "hidden_dim": 256,
+    "num_layers": 2,
+    "dropout": 0.2
+  },
+  "epochs": 10,
+  "batch_size": 128,
+  "learning_rate": 0.002,
+  "sequence_length": 30,
+  "parameters": 4771600,
+  "final_train_perplexity": 114.4,
+  "final_val_perplexity": 123.0,
+  "training_minutes": 1.6,
+  "samples_temperature_0.8": {
+    "the count": "the count of the gesture. and the slight fixed uneducated. faria, whose veins was impossible to be bearing. it is very happy,",
+    "edmond": "edmond, his happiness like an most tender these fine albert's generally was one of the assassination. he sighed to the sign of the",
+    "the prisoner": "the prisoner, and the evening started, and then opened his desk, who had deceived his neighbor, madame, i have the chief very",
+    "mercedes": "mercedes. at reading the wall from the way. the tears and the same tone of as the same of the abb\u00e9 is among your"
+  },
+  "history": {
+    "train_loss": [
+      6.4524,
+      5.985,
+      5.6038,
+      5.3659,
+      5.2003,
+      5.0809,
+      4.9805,
+      4.8932,
+      4.8142,
+      4.74
+    ],
+    "train_perplexity": [
+      634.2058,
+      397.4289,
+      271.4614,
+      213.9802,
+      181.3336,
+      160.9109,
+      145.5418,
+      133.3781,
+      123.2485,
+      114.4371
+    ],
+    "val_loss": [
+      6.1161,
+      5.6448,
+      5.3526,
+      5.182,
+      5.0782,
+      5.0035,
+      4.9362,
+      4.8879,
+      4.8425,
+      4.8122
+    ],
+    "val_perplexity": [
+      453.0943,
+      282.8035,
+      211.1539,
+      178.0337,
+      160.478,
+      148.9314,
+      139.2358,
+      132.6758,
+      126.7813,
+      123.0074
+    ]
+  }
+}
