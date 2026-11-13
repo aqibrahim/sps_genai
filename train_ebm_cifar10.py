@@ -64,9 +64,13 @@ def main():
 
     def snapshot(epoch, model, buffer):
         print(f"  elapsed: {(time.time() - start) / 60:.1f} min")
-        if epoch in SNAPSHOT_EPOCHS or epoch == args.epochs:
+        if epoch in SNAPSHOT_EPOCHS or epoch % 10 == 0 or epoch == args.epochs:
             images, _, _ = generate_ebm_samples(model, num_samples=64, steps=200, device=device, seed=args.seed)
             save_samples(images, FIG_DIR / f"ebm_epoch_{epoch:02d}.png")
+            # Replay-buffer samples: chains that have been refined over many training iterations
+            # (the standard way EBM papers show samples)
+            idx = torch.randperm(buffer.size(0), device=buffer.device)[:64]
+            save_samples(((buffer[idx] + 1) / 2).clamp(0, 1).cpu(), FIG_DIR / f"ebm_buffer_epoch_{epoch:02d}.png")
 
     history = train_ebm(model, loader, device=device, epochs=args.epochs, lr=args.lr,
                         langevin_steps=LANGEVIN["steps"], step_size=LANGEVIN["step_size"],
