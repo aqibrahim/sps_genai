@@ -87,46 +87,54 @@ def train_gan(gan, data_loader, device="cpu", epochs=20, lr=2e-4, betas=(0.5, 0.
     return history
 
 
-def train_diffusion(diffusion, data_loader, device="cpu", epochs=20, lr=1e-3, weight_decay=1e-4,
+def train_diffusion(model, data_loader, criterion=None, optimizer=None, device="cpu", epochs=10,
                     ema_decay=0.999, on_epoch_end=None):
-    """Train a DiffusionModel with the DDPM noise-prediction objective.
+    """Train a DiffusionModel with the DDPM noise-prediction objective (Module 8 activity).
 
     Each batch: sample one random timestep t per image, add noise in closed form to get x_t,
-    predict the noise with the U-Net, and minimize MSE(predicted noise, true noise).
-    An exponential moving average (EMA) of the U-Net weights is kept; it gives smoother,
-    higher-quality samples and is the copy used for generation.
-    Returns (ema_unet, history). on_epoch_end(epoch, ema_unet) can save sample grids.
+    predict the noise with the U-Net, and minimize criterion(predicted noise, true noise).
+    criterion defaults to MSE; optimizer defaults to AdamW(lr=1e-3, weight_decay=1e-4).
+
+    An exponential moving average (EMA) of the U-Net weights is kept, since it gives smoother,
+    higher-quality samples. After training, model.ema_unet holds the EMA copy (used for
+    generation) and model.history the per-epoch losses. Returns the model.
+    on_epoch_end(epoch, ema_unet) can save sample grids.
     """
     import copy
 
-    diffusion.to(device)
-    ema_unet = copy.deepcopy(diffusion.unet).eval()
+    model.to(device)
+    criterion = criterion or torch.nn.MSELoss()
+    optimizer = optimizer or torch.optim.AdamW(model.unet.parameters(), lr=1e-3, weight_decay=1e-4)
+    ema_unet = copy.deepcopy(model.unet).eval()
     for p in ema_unet.parameters():
         p.requires_grad_(False)
-    optimizer = torch.optim.AdamW(diffusion.unet.parameters(), lr=lr, weight_decay=weight_decay)
     history = {"loss": []}
 
     for epoch in range(1, epochs + 1):
-        diffusion.train()
+        model.train()
         total, batches = 0.0, 0
         for x0, _ in data_loader:
             x0 = x0.to(device)
-            loss = diffusion.training_loss(x0)
+            predicted_noise, noise = model.noise_prediction(x0)
+            loss = criterion(predicted_noise, noise)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             with torch.no_grad():  # EMA update: ema = decay * ema + (1 - decay) * current
-                for p_ema, p in zip(ema_unet.parameters(), diffusion.unet.parameters()):
+                for p_ema, p in zip(ema_unet.parameters(), model.unet.parameters()):
                     p_ema.mul_(ema_decay).add_(p.detach(), alpha=1 - ema_decay)
-                for b_ema, b in zip(ema_unet.buffers(), diffusion.unet.buffers()):
+                for b_ema, b in zip(ema_unet.buffers(), model.unet.buffers()):
                     b_ema.copy_(b)
             total += loss.item()
             batches += 1
         history["loss"].append(total / batches)
-        print(f"Epoch {epoch}/{epochs} - noise-prediction MSE: {history['loss'][-1]:.4f}")
+        print(f"Epoch {epoch}/{epochs} - noise-prediction loss: {history['loss'][-1]:.4f}")
         if on_epoch_end is not None:
             on_epoch_end(epoch, ema_unet)
-    return ema_unet, history
+
+    model.ema_unet = ema_unet
+    model.history = history
+    return model
 
 
 def train_ebm(model, data_loader, device="cpu", epochs=10, lr=1e-4, alpha=0.1,

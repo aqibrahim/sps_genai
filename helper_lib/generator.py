@@ -125,3 +125,42 @@ def generate_ebm_samples(model, num_samples=16, steps=200, step_size=10.0, noise
     with torch.no_grad():
         energy_after = model(x).tolist()
     return ((x + 1) / 2).cpu(), energy_before, energy_after
+
+
+# ---------- Class-activity interface (Modules 5, 6 and 8) ----------
+def generate_samples(model, device="cpu", num_samples=10, diffusion_steps=100, seed=None, show=True):
+    """Generate num_samples images with a trained generative model and plot them on a grid.
+
+    - DiffusionModel: start from standard normal noise and run the reverse diffusion
+      (DDIM) for diffusion_steps steps.
+    - Generator / GAN: sample latent noise and run the generator.
+    - VAE: sample latent points from N(0, I) and run the decoder.
+    Returns the images (N, C, H, W) in [0, 1]; shows the grid with matplotlib if show=True.
+    """
+    from helper_lib.model import GAN, VAE, DiffusionModel
+
+    if isinstance(model, DiffusionModel):
+        images = generate_diffusion_samples(model, num_samples=num_samples, steps=diffusion_steps,
+                                            device=device, seed=seed)
+    elif isinstance(model, GAN):
+        images = generate_gan_samples(model.generator, num_samples=num_samples, device=device, seed=seed)
+    elif isinstance(model, VAE):
+        gen = torch.Generator().manual_seed(seed) if seed is not None else None
+        z = torch.randn(num_samples, model.latent_dim, generator=gen).to(device)
+        model.eval()
+        with torch.no_grad():
+            images = model.decode(z).cpu()
+    else:  # a bare Generator
+        images = generate_gan_samples(model, num_samples=num_samples, device=device, seed=seed)
+
+    if show:
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            return images
+        grid = make_image_grid(images).permute(1, 2, 0).numpy()
+        plt.figure(figsize=(6, 6))
+        plt.imshow(grid)
+        plt.axis("off")
+        plt.show()
+    return images

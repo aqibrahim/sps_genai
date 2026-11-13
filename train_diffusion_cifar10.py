@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 import torch
+import torch.nn as nn
 
 from helper_lib.data_loader import get_cifar10_generation_loader
 from helper_lib.generator import generate_diffusion_samples, save_samples
@@ -67,9 +68,11 @@ def main():
             images = generate_diffusion_samples(sampler, num_samples=64, steps=50, device=device, seed=args.seed)
             save_samples(images, FIG_DIR / f"diffusion_epoch_{epoch:02d}.png")
 
-    ema_unet, history = train_diffusion(diffusion, loader, device=device, epochs=args.epochs, lr=args.lr,
-                                        on_epoch_end=snapshot)
-    ema_unet = ema_unet.to("cpu")
+    criterion = nn.MSELoss()  # DDPM objective: MSE between predicted and true noise
+    optimizer = torch.optim.AdamW(unet.parameters(), lr=args.lr, weight_decay=1e-4)
+    diffusion = train_diffusion(diffusion, loader, criterion, optimizer, device=device, epochs=args.epochs,
+                                on_epoch_end=snapshot)
+    ema_unet, history = diffusion.ema_unet.to("cpu"), diffusion.history
     torch.save({"state_dict": ema_unet.state_dict(), "config": UNET_CONFIG, "timesteps": 1000,
                 "epochs": args.epochs}, MODEL_PATH)
 

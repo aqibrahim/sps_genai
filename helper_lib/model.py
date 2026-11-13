@@ -1,4 +1,4 @@
-"""Model definitions. get_model() returns one of: FCNN, CNN, EnhancedCNN, GAN, EBM, Diffusion."""
+"""Model definitions. get_model() returns one of: FCNN, CNN, EnhancedCNN, VAE, GAN, Diffusion, EBM."""
 import math
 
 import torch
@@ -75,6 +75,46 @@ class EnhancedCNN(nn.Module):
 
     def forward(self, x):
         return self.classifier(self.features(x))
+
+
+# ---------- Module 5: Variational autoencoder (28x28 grayscale) ----------
+class VAE(nn.Module):
+    """Convolutional VAE (Module 5 activity).
+
+    Encoder: (B, 1, 28, 28) -> Conv(1->32, k3, s2, p1) + ReLU (14x14) -> Conv(32->64, k3, s2, p1) + ReLU (7x7)
+             -> Flatten (3136) -> Linear to mu and log-variance (latent_dim each)
+    Reparameterization: z = mu + exp(0.5 * logvar) * eps,  eps ~ N(0, I)
+    Decoder: Linear(latent_dim -> 3136) -> reshape (64, 7, 7) -> ConvT(64->32, k4, s2, p1) + ReLU (14x14)
+             -> ConvT(32->1, k4, s2, p1) + Sigmoid (28x28)
+    """
+
+    def __init__(self, latent_dim=16):
+        super().__init__()
+        self.latent_dim = latent_dim
+        self.encoder = nn.Sequential(
+            nn.Conv2d(1, 32, 3, stride=2, padding=1), nn.ReLU(),
+            nn.Conv2d(32, 64, 3, stride=2, padding=1), nn.ReLU(),
+            nn.Flatten(),
+        )
+        self.fc_mu = nn.Linear(64 * 7 * 7, latent_dim)
+        self.fc_logvar = nn.Linear(64 * 7 * 7, latent_dim)
+        self.fc_decode = nn.Linear(latent_dim, 64 * 7 * 7)
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(64, 32, 4, stride=2, padding=1), nn.ReLU(),
+            nn.ConvTranspose2d(32, 1, 4, stride=2, padding=1), nn.Sigmoid(),
+        )
+
+    def encode(self, x):
+        h = self.encoder(x)
+        return self.fc_mu(h), self.fc_logvar(h)
+
+    def decode(self, z):
+        return self.decoder(self.fc_decode(z).view(-1, 64, 7, 7))
+
+    def forward(self, x):
+        mu, logvar = self.encode(x)
+        z = mu + torch.exp(0.5 * logvar) * torch.randn_like(mu)
+        return self.decode(z), mu, logvar
 
 
 # ---------- Assignment 3: GAN for 28x28 MNIST digits ----------
@@ -329,23 +369,31 @@ class DiffusionModel(nn.Module):
         a = self.alpha_bar[t].view(-1, 1, 1, 1)
         return a.sqrt() * x0 + (1 - a).sqrt() * noise
 
-    def training_loss(self, x0):
-        t = torch.randint(0, self.timesteps, (x0.size(0),), device=x0.device)  # one random t per image
+    def noise_prediction(self, x0):
+        """Sample one random timestep per image, corrupt the images, and predict the noise.
+        Returns (predicted_noise, true_noise) for the loss function."""
+        t = torch.randint(0, self.timesteps, (x0.size(0),), device=x0.device)
         noise = torch.randn_like(x0)
         x_t = self.add_noise(x0, t, noise)
-        return nn.functional.mse_loss(self.unet(x_t, t), noise)
+        return self.unet(x_t, t), noise
+
+    def training_loss(self, x0):
+        predicted, noise = self.noise_prediction(x0)
+        return nn.functional.mse_loss(predicted, noise)
 
     def forward(self, x_t, t):
         return self.unet(x_t, t)
 
 
-_MODELS = {"FCNN": FCNN, "CNN": CNN, "EnhancedCNN": EnhancedCNN, "GAN": GAN,
+_MODELS = {"FCNN": FCNN, "CNN": CNN, "EnhancedCNN": EnhancedCNN, "VAE": VAE, "GAN": GAN,
            "EBM": EnergyModel, "Diffusion": DiffusionModel}
 
 
 def get_model(model_name, num_classes=10):
     if model_name not in _MODELS:
         raise ValueError(f"Unknown model '{model_name}'. Choose one of: {list(_MODELS)}")
+    if model_name == "VAE":
+        return VAE()
     if model_name == "GAN":
         model = GAN()
         model.apply(init_gan_weights)

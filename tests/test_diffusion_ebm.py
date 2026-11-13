@@ -54,8 +54,28 @@ def test_noise_schedule_and_forward_process():
 
 
 def test_train_diffusion_smoke():
-    ema, history = train_diffusion(get_model("Diffusion"), tiny_loader(), epochs=1)
-    assert len(history["loss"]) == 1 and isinstance(ema, UNet)
+    """Class-activity signature: train_diffusion(model, data_loader, criterion, optimizer, device, epochs)."""
+    model = get_model("Diffusion")
+    optimizer = torch.optim.AdamW(model.unet.parameters(), lr=1e-3)
+    out = train_diffusion(model, tiny_loader(), torch.nn.MSELoss(), optimizer, device="cpu", epochs=1)
+    assert out is model and len(model.history["loss"]) == 1 and isinstance(model.ema_unet, UNet)
+
+
+def test_generate_samples_activity_interface():
+    """Class-activity signature: generate_samples(model, device, num_samples, diffusion_steps)."""
+    from helper_lib.generator import generate_samples
+    from helper_lib.model import VAE
+
+    images = generate_samples(get_model("Diffusion"), "cpu", num_samples=4, diffusion_steps=5, show=False)
+    assert images.shape == (4, 3, 32, 32)
+    assert generate_samples(get_model("GAN"), "cpu", num_samples=2, show=False).shape == (2, 1, 28, 28)
+    assert generate_samples(VAE(), "cpu", num_samples=2, show=False).shape == (2, 1, 28, 28)
+
+
+def test_vae_shapes():
+    from helper_lib.model import VAE
+    recon, mu, logvar = get_model("VAE")(torch.rand(3, 1, 28, 28))
+    assert recon.shape == (3, 1, 28, 28) and mu.shape == logvar.shape == (3, 16)
 
 
 def test_ddim_sampling_shape_and_range():
@@ -99,6 +119,8 @@ def test_generate_ebm_samples():
 
 
 def test_get_model_new_names():
+    from helper_lib.model import VAE
+    assert isinstance(get_model("VAE"), VAE)
     assert isinstance(get_model("EBM"), EnergyModel)
     assert isinstance(get_model("Diffusion"), DiffusionModel)
 
