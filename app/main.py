@@ -1,6 +1,8 @@
 import base64
 from pathlib import Path
 
+import torch
+
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from PIL import UnidentifiedImageError
@@ -14,9 +16,20 @@ from helper_lib.generator import (
     generate_diffusion_samples,
     generate_ebm_samples,
     generate_gan_samples,
+    generate_with_rnn,
     images_to_png,
 )
-from helper_lib.model import CNN, LATENT_DIM, DiffusionModel, Discriminator, EnergyModel, Generator, UNet
+from helper_lib.model import (
+    CNN,
+    LATENT_DIM,
+    DiffusionModel,
+    Discriminator,
+    EnergyModel,
+    Generator,
+    LSTMLanguageModel,
+    UNet,
+)
+from helper_lib.text import Vocabulary
 from helper_lib.utils import load_model
 
 app = FastAPI(title="SPS GenAI API", version="4.0.0")
@@ -27,6 +40,7 @@ GAN_GENERATOR_PATH = MODELS_DIR / "gan_generator.pth"
 GAN_DISCRIMINATOR_PATH = MODELS_DIR / "gan_discriminator.pth"
 DIFFUSION_PATH = MODELS_DIR / "diffusion_unet.pth"
 EBM_PATH = MODELS_DIR / "ebm.pth"
+LSTM_PATH = MODELS_DIR / "lstm_text.pth"
 
 # ---------- Module 3: bigram model ----------
 corpus = [
@@ -37,6 +51,18 @@ corpus = [
     "bigram models are simple but effective",
 ]
 bigram_model = BigramModel(corpus)
+
+# ---------- Module 6/7 activity: LSTM text generator from helper_lib (replaces the bigram model) ----------
+# helper_lib.model.LSTMLanguageModel: token ids -> Embedding(vocab, 128) -> LSTM(128 -> 256, 2 layers)
+#   -> Linear(256 -> vocab): next-word logits. Trained on "The Count of Monte Cristo".
+lstm_model = lstm_vocab = None
+if LSTM_PATH.exists():
+    lstm_checkpoint = torch.load(LSTM_PATH, map_location="cpu", weights_only=True)
+    lstm_vocab = Vocabulary(lstm_checkpoint["itos"])
+    lstm_model = LSTMLanguageModel(vocab_size=len(lstm_vocab), embedding_dim=128, hidden_dim=256, num_layers=2,
+                                   dropout=0.2)
+    lstm_model.load_state_dict(lstm_checkpoint["state_dict"])
+    lstm_model.eval()
 
 # ---------- Assignment 1: spaCy word embeddings ----------
 embedding_model = EmbeddingModel()  # loaded once at startup
@@ -98,6 +124,8 @@ if EBM_PATH.exists():
 class TextGenerationRequest(BaseModel):
     start_word: str
     length: int = Field(10, ge=1, le=100)
+    temperature: float = Field(0.8, gt=0, le=2.0, description="Sampling temperature (generate_with_rnn only)")
+    seed: int | None = Field(None, description="Random seed (generate_with_rnn only)")
 
 
 class EmbeddingRequest(BaseModel):
@@ -139,6 +167,16 @@ def read_root():
 @app.post("/generate")
 def generate_text(request: TextGenerationRequest):
     generated_text = bigram_model.generate_text(request.start_word, request.length)
+    return {"generated_text": generated_text}
+
+
+@app.post("/generate_with_rnn")
+def generate_with_rnn_endpoint(request: TextGenerationRequest):
+    """Generate text with the LSTM (Module 6/7 activity): `length` new words after `start_word`."""
+    if lstm_model is None:
+        raise HTTPException(status_code=503, detail="LSTM not trained. Run: uv run python train_lstm_text.py")
+    generated_text = generate_with_rnn(lstm_model, lstm_vocab, request.start_word, length=request.length,
+                                       temperature=request.temperature, seed=request.seed)
     return {"generated_text": generated_text}
 
 

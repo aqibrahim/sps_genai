@@ -164,3 +164,31 @@ def generate_samples(model, device="cpu", num_samples=10, diffusion_steps=100, s
         plt.axis("off")
         plt.show()
     return images
+
+
+# ---------- Module 6/7 activity: text generation with an RNN ----------
+def generate_with_rnn(model, vocab, start_word, length=20, temperature=0.8, seed=None, device="cpu"):
+    """Generate `length` new words after the prompt, one word at a time.
+
+    The prompt is fed through the LSTM to build up its hidden state; then, repeatedly, the
+    next-word distribution softmax(logits / temperature) is sampled, the word is appended and
+    fed back in. Lower temperature = safer, more repetitive text; higher = more varied.
+    Returns the prompt plus the generated words as one string.
+    """
+    from helper_lib.text import detokenize, tokenize
+
+    gen = torch.Generator().manual_seed(seed) if seed is not None else None
+    prompt = tokenize(start_word) or ["the"]
+    ids = vocab.encode(prompt)
+    model.eval()
+    words = list(prompt)
+    with torch.no_grad():
+        logits, hidden = model(torch.tensor([ids], device=device))
+        for _ in range(length):
+            next_logits = logits[0, -1] / max(temperature, 1e-4)
+            next_logits[0] = float("-inf")  # never generate <unk>
+            probs = torch.softmax(next_logits, dim=-1).cpu()
+            next_id = torch.multinomial(probs, 1, generator=gen).item()
+            words.append(vocab.itos[next_id])
+            logits, hidden = model(torch.tensor([[next_id]], device=device), hidden)
+    return detokenize(words)

@@ -1,4 +1,4 @@
-"""Model definitions. get_model() returns one of: FCNN, CNN, EnhancedCNN, VAE, GAN, Diffusion, EBM."""
+"""Model definitions. get_model() returns one of: FCNN, CNN, EnhancedCNN, VAE, GAN, Diffusion, EBM, LSTM."""
 import math
 
 import torch
@@ -385,8 +385,29 @@ class DiffusionModel(nn.Module):
         return self.unet(x_t, t)
 
 
+# ---------- Module 6/7 activity: LSTM word-level language model ----------
+class LSTMLanguageModel(nn.Module):
+    """Autoregressive next-word model.
+
+    token ids (B, T) -> Embedding(vocab_size, 128) -> LSTM(128 -> 256, 2 layers, dropout 0.2)
+    -> Dropout -> Linear(256 -> vocab_size): logits for the next word at every position (B, T, vocab_size)
+    """
+
+    def __init__(self, vocab_size, embedding_dim=128, hidden_dim=256, num_layers=2, dropout=0.2):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers=num_layers, batch_first=True,
+                            dropout=dropout if num_layers > 1 else 0.0)
+        self.dropout = nn.Dropout(dropout)
+        self.fc = nn.Linear(hidden_dim, vocab_size)
+
+    def forward(self, x, hidden=None):
+        out, hidden = self.lstm(self.embedding(x), hidden)
+        return self.fc(self.dropout(out)), hidden
+
+
 _MODELS = {"FCNN": FCNN, "CNN": CNN, "EnhancedCNN": EnhancedCNN, "VAE": VAE, "GAN": GAN,
-           "EBM": EnergyModel, "Diffusion": DiffusionModel}
+           "EBM": EnergyModel, "Diffusion": DiffusionModel, "LSTM": LSTMLanguageModel}
 
 
 def get_model(model_name, num_classes=10):
@@ -398,6 +419,8 @@ def get_model(model_name, num_classes=10):
         model = GAN()
         model.apply(init_gan_weights)
         return model
+    if model_name == "LSTM":
+        return LSTMLanguageModel(vocab_size=10000)
     if model_name == "EBM":
         return EnergyModel(in_channels=3)
     if model_name == "Diffusion":

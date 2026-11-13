@@ -197,3 +197,44 @@ def train_ebm(model, data_loader, device="cpu", epochs=10, lr=1e-4, alpha=0.1,
         if on_epoch_end is not None:
             on_epoch_end(epoch, model, buffer)
     return history
+
+
+def train_lstm(model, data_loader, criterion, optimizer, device="cpu", epochs=10, val_loader=None, clip=1.0):
+    """Train a next-word language model: cross-entropy between the predicted distribution at every
+    position and the actual next word. Gradients are clipped (common for RNNs, avoids exploding
+    gradients). Returns the model; model.history holds per-epoch loss and perplexity."""
+    import math
+
+    model.to(device)
+    history = {"train_loss": [], "train_perplexity": [], "val_loss": [], "val_perplexity": []}
+    for epoch in range(1, epochs + 1):
+        model.train()
+        total, count = 0.0, 0
+        for x, y in data_loader:
+            x, y = x.to(device), y.to(device)
+            logits, _ = model(x)
+            loss = criterion(logits.reshape(-1, logits.size(-1)), y.reshape(-1))
+            optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+            optimizer.step()
+            total += loss.item() * x.size(0)
+            count += x.size(0)
+        history["train_loss"].append(total / count)
+        history["train_perplexity"].append(math.exp(total / count))
+        msg = f"Epoch {epoch}/{epochs} - loss: {history['train_loss'][-1]:.4f} - perplexity: {history['train_perplexity'][-1]:.1f}"
+        if val_loader is not None:
+            model.eval()
+            v_total, v_count = 0.0, 0
+            with torch.no_grad():
+                for x, y in val_loader:
+                    x, y = x.to(device), y.to(device)
+                    logits, _ = model(x)
+                    v_total += criterion(logits.reshape(-1, logits.size(-1)), y.reshape(-1)).item() * x.size(0)
+                    v_count += x.size(0)
+            history["val_loss"].append(v_total / v_count)
+            history["val_perplexity"].append(math.exp(v_total / v_count))
+            msg += f" - val loss: {history['val_loss'][-1]:.4f} - val perplexity: {history['val_perplexity'][-1]:.1f}"
+        print(msg)
+    model.history = history
+    return model
