@@ -192,6 +192,20 @@ The model assigns random noise an energy about **450× higher** than its samples
 
 After epoch 1 the samples are pure static. By epochs 10–30 they have changed character: high-frequency static gives way to smoother colour regions with CIFAR-10's typical palettes (sky blues, browns, greens, whites). The buffer samples show **image-like layouts**, such as a light region above a dark one (sky over ground), blue patches like water, and blobs against a background, though without recognizable objects and still with fine-grained noise.
 
+**Is the sampler the bottleneck? (experiment).** To check whether better sampling alone could improve the images, the trained energy model was sampled with eight different Langevin settings (same 16 noise seeds; script run on GitHub Actions):
+
+![Sampling experiment](screenshots/ebm_sampling_experiment.png)
+
+| Setting | Mean energy after | Grain (mean neighbouring-pixel difference) |
+| --- | --- | --- |
+| A: uniform noise, 200 steps (the API default) | 0.0086 | 0.209 |
+| B: A + 100 noise-free final steps | 0.0040 | 0.201 |
+| C: uniform noise, 1,000 steps | −0.0071 | 0.201 |
+| E: smooth (8×8) noise, 200 steps + 100 noise-free | 0.0051 | 0.141 |
+| F: smooth (4×4) noise, 200 steps + 100 noise-free | 0.0027 | 0.092 |
+
+Longer chains (C) and noise-free final steps (B) lower the energy further but barely change the images. Starting from smooth noise (E, F) removes grain, but produces saturated colour blobs that look *less* like CIFAR-10: smooth patterns already have low energy under this model, so Langevin dynamics hardly changes them. **Conclusion:** the limit is the learned energy function, not the sampler, so the API keeps the standard setting (A). The model's first layer (5×5 kernel, stride 2) skips every other pixel, which makes it nearly blind to pixel-level grain; a stride-1 first layer and a wider network would be the next step.
+
 **Why the EBM looks much weaker than the diffusion model.** Both were trained for about 23 minutes on the same data, but they learn very differently. The diffusion model gets a direct, low-variance training signal at every pixel and noise level (predict the exact noise that was added). The EBM learns only by comparing real images with its own MCMC samples, so its signal is noisy and depends on how well the sampler mixes; short-run Langevin chains on 3,072-dimensional colour images explore slowly. This is the known weakness of EBMs, and a main reason diffusion models (which can be viewed as learning the *gradient* of the log-density at many noise levels) have replaced them for image generation. Larger energy networks, many more epochs and longer chains improve EBM samples substantially (e.g. Du & Mordatch, 2019), at a much higher compute cost.
 
 **Through Docker** (`GET /ebm/generate?num_images=16&seed=42`):
