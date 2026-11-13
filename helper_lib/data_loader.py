@@ -45,3 +45,17 @@ def get_mnist_loader(data_dir, batch_size=128, train=True, download=True, num_wo
     return torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=train, num_workers=num_workers, drop_last=train,
     )
+
+
+def get_cifar10_generation_loader(data_dir, batch_size=128, download=True, num_workers=2):
+    """CIFAR-10 training images (3x32x32) for generative models: pixels scaled to [-1, 1],
+    random horizontal flips; labels are ignored by the generative models."""
+    transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
+    dataset = datasets.CIFAR10(root=data_dir, train=True, download=download, transform=transform)
+    return torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, drop_last=True,
+    )

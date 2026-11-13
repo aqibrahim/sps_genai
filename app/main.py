@@ -9,16 +9,24 @@ from pydantic import BaseModel, Field
 from app.bigram_model import BigramModel
 from app.embedding_model import EmbeddingModel
 from app.image_classifier import ImageClassifier
-from helper_lib.generator import discriminator_scores, generate_gan_samples, images_to_png
-from helper_lib.model import CNN, LATENT_DIM, Discriminator, Generator
+from helper_lib.generator import (
+    discriminator_scores,
+    generate_diffusion_samples,
+    generate_ebm_samples,
+    generate_gan_samples,
+    images_to_png,
+)
+from helper_lib.model import CNN, LATENT_DIM, DiffusionModel, Discriminator, EnergyModel, Generator, UNet
 from helper_lib.utils import load_model
 
-app = FastAPI(title="SPS GenAI API", version="3.1.0")
+app = FastAPI(title="SPS GenAI API", version="4.0.0")
 
 MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 CNN_PATH = MODELS_DIR / "cifar10_cnn.pth"
 GAN_GENERATOR_PATH = MODELS_DIR / "gan_generator.pth"
 GAN_DISCRIMINATOR_PATH = MODELS_DIR / "gan_discriminator.pth"
+DIFFUSION_PATH = MODELS_DIR / "diffusion_unet.pth"
+EBM_PATH = MODELS_DIR / "ebm.pth"
 
 # ---------- Module 3: bigram model ----------
 corpus = [
@@ -61,6 +69,30 @@ if GAN_GENERATOR_PATH.exists():
 if GAN_DISCRIMINATOR_PATH.exists():
     discriminator, _ = load_model(Discriminator(), GAN_DISCRIMINATOR_PATH)
 
+# ---------- Assignment 4: Diffusion model from helper_lib (U-Net noise predictor) ----------
+# helper_lib.model.UNet: noisy image x_t (3x32x32) + timestep t
+#   -> sinusoidal time embedding (32 dims), upsampled to 32x32 and concatenated with the image features
+#   -> DownBlocks 32x32 (32 ch) -> 16x16 (64 ch) -> 8x8 (96 ch) -> 4x4, bottleneck 128 ch,
+#   -> UpBlocks with skip connections back to 32x32 -> predicted noise (3x32x32)
+# helper_lib.model.DiffusionModel: DDPM objective, cosine schedule over 1,000 timesteps; sampled with DDIM
+unet = UNet(image_size=32, in_channels=3, widths=(32, 64, 96, 128), block_depth=2, embedding_dim=32)
+diffusion = None
+diffusion_epochs = None
+if DIFFUSION_PATH.exists():
+    unet, diffusion_checkpoint = load_model(unet, DIFFUSION_PATH)  # trained (EMA) weights
+    diffusion = DiffusionModel(unet, timesteps=1000).eval()
+    diffusion_epochs = diffusion_checkpoint.get("epochs")
+
+# ---------- Assignment 4: Energy-based model from helper_lib ----------
+# helper_lib.model.EnergyModel: image (3x32x32) -> Conv(3->16, k5, s2) -> Conv(16->32, k3, s2)
+#   -> Conv(32->64, k3, s2) -> Conv(64->64, k3, s2), Swish activations -> Linear(256->64) -> Linear(64->1): energy
+# Samples are generated with Langevin dynamics: gradient descent on the input pixels, weights frozen.
+energy_model = None
+ebm_epochs = None
+if EBM_PATH.exists():
+    energy_model, ebm_checkpoint = load_model(EnergyModel(in_channels=3), EBM_PATH)
+    ebm_epochs = ebm_checkpoint.get("epochs")
+
 
 # ---------- Request schemas ----------
 class TextGenerationRequest(BaseModel):
@@ -75,6 +107,21 @@ class EmbeddingRequest(BaseModel):
 class DigitGenerationRequest(BaseModel):
     num_images: int = Field(16, ge=1, le=64, description="How many digits to generate")
     seed: int | None = Field(None, description="Random seed; the same seed gives the same digits")
+    scale: int = Field(4, ge=1, le=8, description="Upscaling factor for the returned PNG")
+
+
+class DiffusionGenerationRequest(BaseModel):
+    num_images: int = Field(16, ge=1, le=64, description="How many images to generate")
+    steps: int = Field(50, ge=5, le=1000, description="DDIM denoising steps (more = slower, slightly sharper)")
+    seed: int | None = Field(None, description="Random seed; the same seed gives the same images")
+    scale: int = Field(4, ge=1, le=8, description="Upscaling factor for the returned PNG")
+
+
+class EBMGenerationRequest(BaseModel):
+    num_images: int = Field(16, ge=1, le=64, description="How many images to generate")
+    steps: int = Field(200, ge=1, le=1000, description="Langevin dynamics steps starting from noise")
+    step_size: float = Field(10.0, gt=0, le=100, description="Langevin step size (gradient multiplier)")
+    seed: int | None = Field(None, description="Random seed; the same seed gives the same images")
     scale: int = Field(4, ge=1, le=8, description="Upscaling factor for the returned PNG")
 
 
@@ -203,5 +250,130 @@ def gan_info():
             "class": "helper_lib.model.Discriminator",
             "parameters": sum(p.numel() for p in discriminator.parameters()),
             "layers": _layers(discriminator),
+        },
+    }
+
+
+# ---------- Assignment 4: diffusion model ----------
+def _require_diffusion():
+    if diffusion is None:
+        raise HTTPException(status_code=503, detail="Diffusion model not trained. Run: uv run python train_diffusion_cifar10.py")
+    return diffusion
+
+
+@app.get(
+    "/diffusion/generate",
+    responses={200: {"content": {"image/png": {}}, "description": "PNG grid of generated CIFAR-10-style images"}},
+    response_class=Response,
+)
+def diffusion_generate_image(
+    num_images: int = Query(16, ge=1, le=64, description="How many images to generate"),
+    steps: int = Query(50, ge=5, le=1000, description="DDIM denoising steps"),
+    seed: int | None = Query(None, description="Random seed; the same seed gives the same images"),
+    scale: int = Query(4, ge=1, le=8, description="Upscaling factor for the PNG"),
+):
+    """Generate images by reverse diffusion (DDIM) from pure noise, returned as a PNG grid."""
+    images = generate_diffusion_samples(_require_diffusion(), num_samples=num_images, steps=steps, seed=seed)
+    return Response(content=images_to_png(images, scale=scale), media_type="image/png")
+
+
+@app.post("/diffusion/generate")
+def diffusion_generate(request: DiffusionGenerationRequest):
+    """Generate images by reverse diffusion; returns the PNG grid as base64 plus the settings used."""
+    images = generate_diffusion_samples(_require_diffusion(), num_samples=request.num_images,
+                                        steps=request.steps, seed=request.seed)
+    return {
+        "num_images": request.num_images,
+        "steps": request.steps,
+        "seed": request.seed,
+        "image_shape": [3, 32, 32],
+        "image_format": "png",
+        "image_base64": base64.b64encode(images_to_png(images, scale=request.scale)).decode("ascii"),
+    }
+
+
+@app.get("/diffusion/info")
+def diffusion_info():
+    """The loaded U-Net and noise schedule."""
+    model = _require_diffusion()
+    return {
+        "dataset": "CIFAR-10",
+        "image_shape": [3, 32, 32],
+        "objective": "DDPM: predict the added noise, MSE loss",
+        "timesteps": model.timesteps,
+        "schedule": "cosine",
+        "sampler": "DDIM (deterministic)",
+        "epochs_trained": diffusion_epochs,
+        "unet": {
+            "class": "helper_lib.model.UNet",
+            "parameters": sum(p.numel() for p in model.unet.parameters()),
+            "time_embedding": "sinusoidal, 32 dimensions, max period 10000",
+            "resolutions": [32, 16, 8, 4],
+            "layers": _layers(model.unet),
+        },
+    }
+
+
+# ---------- Assignment 4: energy-based model ----------
+def _require_ebm():
+    if energy_model is None:
+        raise HTTPException(status_code=503, detail="Energy model not trained. Run: uv run python train_ebm_cifar10.py")
+    return energy_model
+
+
+@app.get(
+    "/ebm/generate",
+    responses={200: {"content": {"image/png": {}}, "description": "PNG grid of Langevin samples"}},
+    response_class=Response,
+)
+def ebm_generate_image(
+    num_images: int = Query(16, ge=1, le=64, description="How many images to generate"),
+    steps: int = Query(200, ge=1, le=1000, description="Langevin dynamics steps starting from noise"),
+    step_size: float = Query(10.0, gt=0, le=100, description="Langevin step size"),
+    seed: int | None = Query(None, description="Random seed; the same seed gives the same images"),
+    scale: int = Query(4, ge=1, le=8, description="Upscaling factor for the PNG"),
+):
+    """Generate images with Langevin dynamics on the trained energy function, returned as a PNG grid."""
+    images, _, _ = generate_ebm_samples(_require_ebm(), num_samples=num_images, steps=steps,
+                                        step_size=step_size, seed=seed)
+    return Response(content=images_to_png(images, scale=scale), media_type="image/png")
+
+
+@app.post("/ebm/generate")
+def ebm_generate(request: EBMGenerationRequest):
+    """Generate images with Langevin dynamics; returns the PNG grid as base64 plus each image's
+    energy before (random noise) and after sampling, showing that Langevin dynamics lowers the energy."""
+    images, before, after = generate_ebm_samples(_require_ebm(), num_samples=request.num_images,
+                                                 steps=request.steps, step_size=request.step_size,
+                                                 seed=request.seed)
+    return {
+        "num_images": request.num_images,
+        "steps": request.steps,
+        "step_size": request.step_size,
+        "seed": request.seed,
+        "image_shape": [3, 32, 32],
+        "image_format": "png",
+        "image_base64": base64.b64encode(images_to_png(images, scale=request.scale)).decode("ascii"),
+        "energy_before": [round(e, 4) for e in before],
+        "energy_after": [round(e, 4) for e in after],
+        "mean_energy_before": round(sum(before) / len(before), 4),
+        "mean_energy_after": round(sum(after) / len(after), 4),
+    }
+
+
+@app.get("/ebm/info")
+def ebm_info():
+    """The loaded energy model, layer by layer."""
+    model = _require_ebm()
+    return {
+        "dataset": "CIFAR-10",
+        "image_shape": [3, 32, 32],
+        "training": "contrastive divergence with Langevin negative samples and a replay buffer",
+        "sampling": "Langevin dynamics: x <- x + noise; x <- x - step_size * dE/dx (weights frozen)",
+        "epochs_trained": ebm_epochs,
+        "energy_model": {
+            "class": "helper_lib.model.EnergyModel",
+            "parameters": sum(p.numel() for p in model.parameters()),
+            "layers": _layers(model),
         },
     }

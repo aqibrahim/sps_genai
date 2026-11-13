@@ -11,3 +11,5 @@ train_cifar10.py
 tests
 evaluate_cifar10.py
 train_gan_mnist.py
+train_diffusion_cifar10.py
+train_ebm_cifar10.py

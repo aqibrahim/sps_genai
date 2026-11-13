@@ -85,3 +85,107 @@ def train_gan(gan, data_loader, device="cpu", epochs=20, lr=2e-4, betas=(0.5, 0.
         if on_epoch_end is not None:
             on_epoch_end(epoch, G)
     return history
+
+
+def train_diffusion(diffusion, data_loader, device="cpu", epochs=20, lr=1e-3, weight_decay=1e-4,
+                    ema_decay=0.999, on_epoch_end=None):
+    """Train a DiffusionModel with the DDPM noise-prediction objective.
+
+    Each batch: sample one random timestep t per image, add noise in closed form to get x_t,
+    predict the noise with the U-Net, and minimize MSE(predicted noise, true noise).
+    An exponential moving average (EMA) of the U-Net weights is kept; it gives smoother,
+    higher-quality samples and is the copy used for generation.
+    Returns (ema_unet, history). on_epoch_end(epoch, ema_unet) can save sample grids.
+    """
+    import copy
+
+    diffusion.to(device)
+    ema_unet = copy.deepcopy(diffusion.unet).eval()
+    for p in ema_unet.parameters():
+        p.requires_grad_(False)
+    optimizer = torch.optim.AdamW(diffusion.unet.parameters(), lr=lr, weight_decay=weight_decay)
+    history = {"loss": []}
+
+    for epoch in range(1, epochs + 1):
+        diffusion.train()
+        total, batches = 0.0, 0
+        for x0, _ in data_loader:
+            x0 = x0.to(device)
+            loss = diffusion.training_loss(x0)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            with torch.no_grad():  # EMA update: ema = decay * ema + (1 - decay) * current
+                for p_ema, p in zip(ema_unet.parameters(), diffusion.unet.parameters()):
+                    p_ema.mul_(ema_decay).add_(p.detach(), alpha=1 - ema_decay)
+                for b_ema, b in zip(ema_unet.buffers(), diffusion.unet.buffers()):
+                    b_ema.copy_(b)
+            total += loss.item()
+            batches += 1
+        history["loss"].append(total / batches)
+        print(f"Epoch {epoch}/{epochs} - noise-prediction MSE: {history['loss'][-1]:.4f}")
+        if on_epoch_end is not None:
+            on_epoch_end(epoch, ema_unet)
+    return ema_unet, history
+
+
+def train_ebm(model, data_loader, device="cpu", epochs=10, lr=1e-4, alpha=0.1,
+              langevin_steps=60, step_size=10.0, noise_std=0.005, buffer_size=8192,
+              reinit_prob=0.05, on_epoch_end=None):
+    """Train an energy-based model with contrastive divergence and Langevin sampling.
+
+    Each batch:
+      1. Negative samples: start from a replay buffer of earlier samples (95%) or fresh uniform
+         noise (5%), and run short-run Langevin dynamics on the *images* (model weights frozen).
+      2. Loss (contrastive divergence + regularization):
+             L = mean E(x_real) - mean E(x_fake) + alpha * (mean E(x_real)^2 + mean E(x_fake)^2)
+         The first terms push energy down on real images and up on model samples; the
+         regularizer keeps the energy values from drifting to large magnitudes.
+      3. Update the model weights with Adam; store the new samples in the buffer.
+    Returns a history dict. on_epoch_end(epoch, model, buffer) can save sample grids.
+    """
+    from helper_lib.generator import langevin_sample
+
+    model.to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.0, 0.999))
+    buffer = torch.rand(buffer_size, 3, 32, 32, device=device) * 2 - 1  # uniform noise in [-1, 1]
+    history = {"loss": [], "cd_loss": [], "energy_real": [], "energy_fake": []}
+
+    for epoch in range(1, epochs + 1):
+        sums = {k: 0.0 for k in history}
+        batches = 0
+        for real, _ in data_loader:
+            real = real.to(device)
+            b = real.size(0)
+            # 1) Negative samples: mostly continue earlier chains, sometimes restart from noise
+            idx = torch.randint(0, buffer_size, (b,), device=device)
+            start = buffer[idx]
+            fresh = torch.rand(b, device=device) < reinit_prob
+            start[fresh] = torch.rand_like(start[fresh]) * 2 - 1
+            fake = langevin_sample(model, start, steps=langevin_steps, step_size=step_size, noise_std=noise_std)
+            buffer[idx] = fake
+
+            # 2) Contrastive divergence loss: gradients flow to the weights here, not to the images
+            model.train()
+            real = real + 0.005 * torch.randn_like(real)  # small noise on real data stabilizes training
+            e_real, e_fake = model(real), model(fake)
+            cd_loss = e_real.mean() - e_fake.mean()
+            reg = alpha * (e_real.pow(2).mean() + e_fake.pow(2).mean())
+            loss = cd_loss + reg
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            sums["loss"] += loss.item()
+            sums["cd_loss"] += cd_loss.item()
+            sums["energy_real"] += e_real.mean().item()
+            sums["energy_fake"] += e_fake.mean().item()
+            batches += 1
+
+        for k in history:
+            history[k].append(sums[k] / batches)
+        print(f"Epoch {epoch}/{epochs} - loss: {history['loss'][-1]:.4f} - CD: {history['cd_loss'][-1]:.4f} - "
+              f"E(real): {history['energy_real'][-1]:.4f} - E(fake): {history['energy_fake'][-1]:.4f}")
+        if on_epoch_end is not None:
+            on_epoch_end(epoch, model, buffer)
+    return history
