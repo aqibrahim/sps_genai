@@ -13,13 +13,15 @@ MONTE_CRISTO_URL = "https://www.gutenberg.org/cache/epub/1184/pg1184.txt"
 
 
 def tokenize(text):
-    """Lowercase words (including accented letters and apostrophes) and basic punctuation."""
-    return re.findall(r"[a-zà-öø-ÿ]+(?:'[a-z]+)?|[.,!?;:]", text.lower())
+    """Lowercase words (including accented letters), contraction/possessive endings ('s, 't, 'll, ...)
+    and basic punctuation. Curly apostrophes (as used in the book) are normalized to straight ones."""
+    text = text.lower().replace("\u2019", "'").replace("\u2018", "'")
+    return re.findall(r"[a-zà-öø-ÿ]+|'[a-z]+|[.,!?;:]", text)
 
 
 def detokenize(tokens):
-    """Join tokens with spaces, attaching punctuation to the previous word."""
-    return re.sub(r" ([.,!?;:])", r"\1", " ".join(tokens))
+    """Join tokens with spaces, attaching punctuation and endings like 's to the previous word."""
+    return re.sub(r" ([.,!?;:]|'[a-z]+)", r"\1", " ".join(tokens))
 
 
 def load_corpus(data_dir="data", url=MONTE_CRISTO_URL):

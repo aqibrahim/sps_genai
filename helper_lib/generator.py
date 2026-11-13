@@ -58,7 +58,8 @@ def generate_diffusion_samples(diffusion, num_samples=16, steps=50, device="cpu"
     Start from pure noise x_T ~ N(0, I) and walk back over `steps` evenly spaced timesteps.
     At each timestep t (next one s < t):
         eps   = UNet(x_t, t)                                              (predicted noise)
-        x0    = (x_t - sqrt(1 - a_t) * eps) / sqrt(a_t)                   (predicted clean image)
+        x0    = clamp((x_t - sqrt(1 - a_t) * eps) / sqrt(a_t), -1, 1)     (predicted clean image)
+        eps   = (x_t - sqrt(a_t) * x0) / sqrt(1 - a_t)                    (noise consistent with x0)
         x_s   = sqrt(a_s) * x0 + sqrt(1 - a_s) * eps                      (move to the less noisy step)
     where a_t = alpha_bar_t. Fewer steps than the 1,000 training steps give fast generation.
     Returns images in [0, 1], shape (N, 3, 32, 32).
@@ -75,6 +76,10 @@ def generate_diffusion_samples(diffusion, num_samples=16, steps=50, device="cpu"
             t_batch = torch.full((num_samples,), t, device=device, dtype=torch.long)
             eps = diffusion.unet(x, t_batch)
             x0 = ((x - (1 - a_t).sqrt() * eps) / a_t.sqrt()).clamp(-1, 1)
+            # Recompute the noise so it is consistent with the clamped x0 (as diffusers' DDIM does).
+            # Without this, at the noisiest steps (alpha_bar ~ 0) the clamped x0 and the raw eps
+            # disagree, and some samples end up as saturated high-frequency noise.
+            eps = (x - a_t.sqrt() * x0) / (1 - a_t).sqrt()
             x = a_s.sqrt() * x0 + (1 - a_s).sqrt() * eps
     return ((x.clamp(-1, 1) + 1) / 2).cpu()
 

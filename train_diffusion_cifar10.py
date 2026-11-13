@@ -2,6 +2,8 @@
 
 Usage:  uv run --with matplotlib python train_diffusion_cifar10.py            (default 30 epochs)
         uv run --with matplotlib python train_diffusion_cifar10.py --epochs 50
+        uv run python train_diffusion_cifar10.py --sample-only   (no training: regenerate the final
+                                                                  sample grid from the saved model)
 """
 import argparse
 import json
@@ -46,7 +48,19 @@ def main():
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--data-dir", default="data")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--sample-only", action="store_true", help="regenerate samples from the saved model")
     args = parser.parse_args()
+
+    if args.sample_only:
+        checkpoint = torch.load(MODEL_PATH, map_location="cpu", weights_only=True)
+        unet = UNet(**checkpoint["config"])
+        unet.load_state_dict(checkpoint["state_dict"])
+        model = DiffusionModel(unet, timesteps=checkpoint["timesteps"]).eval()
+        FIG_DIR.mkdir(parents=True, exist_ok=True)
+        save_samples(generate_diffusion_samples(model, num_samples=64, steps=50, seed=7), FIG_DIR / "diffusion_samples_final.png")
+        save_samples(generate_diffusion_samples(model, num_samples=16, steps=50, seed=42), FIG_DIR / "diffusion_samples_seed42.png")
+        print(f"Saved {FIG_DIR}/diffusion_samples_final.png and diffusion_samples_seed42.png")
+        return
 
     torch.manual_seed(args.seed)
     device = get_device()

@@ -72,7 +72,7 @@ def main():
 
     MODEL_PATH.parent.mkdir(exist_ok=True)
     torch.save({"state_dict": model.state_dict(), "itos": vocab.itos, "config": CONFIG, "epochs": args.epochs}, MODEL_PATH)
-    samples = {p: generate_with_rnn(model, vocab, p, length=25, seed=1) for p in PROMPTS}
+    samples = {p: generate_with_rnn(model, vocab, p, length=25, seed=i) for i, p in enumerate(PROMPTS)}
     for p, text in samples.items():
         print(f"  [{p}] {text}")
     plot(model.history)

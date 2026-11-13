@@ -18,6 +18,12 @@ def test_tokenize_and_detokenize():
     assert detokenize(["hello", ",", "world", "."]) == "hello, world."
 
 
+def test_curly_apostrophes_and_possessives():
+    tokens = tokenize("Albert\u2019s helm. Don't go!")
+    assert tokens == ["albert", "'s", "helm", ".", "don", "'t", "go", "!"]
+    assert detokenize(tokens) == "albert's helm. don't go!"
+
+
 def test_vocabulary_round_trip():
     vocab = Vocabulary.build(tokenize(TEXT))
     assert vocab.itos[0] == "<unk>" and vocab.encode(["zzz"]) == [0]
